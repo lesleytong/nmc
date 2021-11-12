@@ -31,11 +31,11 @@ public class ReadResourceCompare {
 
 		resourceSet.getPackageRegistry().put(EcorePackage.eNS_URI, EcorePackage.eINSTANCE);
 		
-		URI baseURI = URI.createFileURI("E:\\eclipse-dsl202012\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\person.ecore");
+		URI baseURI = URI.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\person.ecore");
 		URI branch1URI = URI
-				.createFileURI("E:\\eclipse-dsl202012\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\person1.ecore");
+				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\person1.ecore");
 		URI branch2URI = URI
-				.createFileURI("E:\\eclipse-dsl202012\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\person2.ecore");
+				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\person2.ecore");
 		
 		List<URI> uriList = new ArrayList<>();
 		uriList.add(baseURI);
@@ -70,12 +70,12 @@ public class ReadResourceCompare {
 			System.out.println("right  :" + m.getRight());
 			System.out.println("origin :" + m.getOrigin());
 			System.out.println("________________________________________");
-			m.getAllSubmatches().forEach(sub -> {
-				System.out.println("left   :" + sub.getLeft());
-				System.out.println("right  :" + sub.getRight());
-				System.out.println("origin :" + sub.getOrigin());
-				System.out.println("----------------------------------------");
-			});
+//			m.getAllSubmatches().forEach(sub -> {
+//				System.out.println("left   :" + sub.getLeft());
+//				System.out.println("right  :" + sub.getRight());
+//				System.out.println("origin :" + sub.getOrigin());
+//				System.out.println("----------------------------------------");
+//			});
 		});
 		System.out.println("");
 				

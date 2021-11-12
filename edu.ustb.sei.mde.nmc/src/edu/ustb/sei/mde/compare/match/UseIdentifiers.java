@@ -42,6 +42,9 @@ public enum UseIdentifiers {
 	 * Never use IDs, always use the content matching strategy. That's useful for instance when you want to
 	 * compare two results of a transformation which have arbitrary IDs.
 	 */
-	NEVER
+	NEVER,
+	
+	// lyt
+	HASH
 }
 

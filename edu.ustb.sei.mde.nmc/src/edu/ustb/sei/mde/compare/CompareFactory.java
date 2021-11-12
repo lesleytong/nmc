@@ -48,13 +48,4 @@ public interface CompareFactory extends EFactory {
 	 */
 	Match createMatch();
 
-	/**
-	 * Returns the package supported by this factory.
-	 * <!-- begin-user-doc -->
-	 * <!-- end-user-doc -->
-	 * @return the package supported by this factory.
-	 * @generated
-	 */
-	ComparePackage getComparePackage();
-
 } //CompareFactory

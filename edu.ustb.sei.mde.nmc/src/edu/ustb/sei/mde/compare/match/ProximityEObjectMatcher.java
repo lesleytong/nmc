@@ -1,12 +1,14 @@
 package edu.ustb.sei.mde.compare.match;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.Map.Entry;
 
 import org.eclipse.emf.common.util.BasicEList;
-import org.eclipse.emf.common.util.Monitor;
 import org.eclipse.emf.ecore.EObject;
 
 import com.google.common.collect.ImmutableList;
@@ -22,7 +24,7 @@ import edu.ustb.sei.mde.compare.IEObjectMatcher;
 import edu.ustb.sei.mde.compare.Match;
 import edu.ustb.sei.mde.compare.ScopeQuery;
 import edu.ustb.sei.mde.compare.EObjectIndex.Side;
-
+import edu.ustb.sei.mde.compare.match.ProximityEObjectMatcher.DistanceFunction;
 
 /**
  * This matcher is using a distance function to match EObject. It guarantees that elements are matched with
@@ -42,30 +44,24 @@ import edu.ustb.sei.mde.compare.EObjectIndex.Side;
  * @author <a href="mailto:cedric.brun@obeo.fr">Cedric Brun</a>
  */
 public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
-	/**
-	 * Number of elements to index before a starting a match ahead step.
-	 */
-	private static final int NB_ELEMENTS_BETWEEN_MATCH_AHEAD = 10000;
 
 	/**
 	 * The index which keep the EObjects.
 	 */
 	private EObjectIndex index;
+	
+	// lyt
+	private DistanceFunction meter;
 
 	/**
 	 * Keeps track of which side was the EObject from.
 	 */
 	private Map<EObject, Side> eObjectsToSide = Maps.newHashMap();
 	
-
-	/**
-	 * Create the matcher using the given distance function.
-	 * 
-	 * @param meter
-	 *            a function to measure the distance between two {@link EObject}s.
-	 */
-	public ProximityEObjectMatcher(DistanceFunction meter) {
-		this.index = new ByTypeIndex(meter, this);
+	// lyt
+	public ProximityEObjectMatcher(DistanceFunction meter, EObjectIndex index) {
+		this.meter = meter;
+		this.index = index;
 	}
 
 	/**
@@ -78,8 +74,6 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 			return;
 		}
 
-		int nbElements = 0;
-		int lastSegment = 0;
 		/*
 		 * We are iterating through the three sides of the scope at the same time so that index might apply
 		 * pre-matching strategies elements if they wish.
@@ -88,7 +82,6 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 
 			if (leftEObjects.hasNext()) {
 				EObject next = leftEObjects.next();
-				nbElements++;
 				index.index(next, Side.LEFT);
 				eObjectsToSide.put(next, Side.LEFT);
 			}
@@ -104,16 +97,14 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 				index.index(next, Side.ORIGIN);
 				eObjectsToSide.put(next, Side.ORIGIN);
 			}
-			if (nbElements / NB_ELEMENTS_BETWEEN_MATCH_AHEAD > lastSegment) {
-				lastSegment++;
-			}
 
 		}
 
 		matchIndexedObjects(comparison);
 
-		createUnmatchesForRemainingObjects(comparison);
-		restructureMatchModel(comparison);
+//		createUnmatchesForRemainingObjects(comparison);
+		// 目前看来submatches没啥用，先注释掉
+//		restructureMatchModel(comparison);	
 
 	}
 
@@ -242,7 +233,10 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 		assert aSide != bSide;
 		assert bSide != cSide;
 		assert cSide != aSide;
-		Map<Side, EObject> closests = index.findClosests(comparison, a, aSide);
+		
+		// lyt
+		Map<Side, EObject> closests = findClosests(comparison, a, aSide);
+		
 		if (closests != null) {
 			EObject lObj = closests.get(bSide);
 			EObject aObj = closests.get(cSide);
@@ -378,5 +372,140 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 	public boolean isInScope(EObject eContainer) {
 		return eObjectsToSide.get(eContainer) != null;
 	}
+
+	// lyt
+	public Map<Side, EObject> findClosests(Comparison inProgress, EObject eObj, Side passedObjectSide) {
+		
+		if (!readyForThisTest(inProgress, eObj)) {
+			return null;
+		}			
+		Map<Side, EObject> result = new HashMap<EObjectIndex.Side, EObject>(3);
+		result.put(passedObjectSide, eObj);
+		
+		Set<EObject> lefts = index.getLefts(eObj);
+		Set<EObject> rights = index.getRights(eObj);
+		Set<EObject> origins = index.getOrigins(eObj);
+		
+		if (passedObjectSide == Side.LEFT) {
+			EObject closestRight = findTheClosest(inProgress, eObj, lefts, rights, true);
+			EObject closestOrigin = findTheClosest(inProgress, eObj, lefts, origins, true);
+			result.put(Side.RIGHT, closestRight);
+			result.put(Side.ORIGIN, closestOrigin);
+		} else if (passedObjectSide == Side.RIGHT) {
+			EObject closestLeft = findTheClosest(inProgress, eObj, rights, lefts, true);
+			EObject closestOrigin = findTheClosest(inProgress, eObj, rights, origins, true);
+			result.put(Side.LEFT, closestLeft);
+			result.put(Side.ORIGIN, closestOrigin);
+
+		} else if (passedObjectSide == Side.ORIGIN) {
+			EObject closestLeft = findTheClosest(inProgress, eObj, origins, lefts, true);
+			EObject closestRight = findTheClosest(inProgress, eObj, origins, rights, true);
+			result.put(Side.LEFT, closestLeft);
+			result.put(Side.RIGHT, closestRight);
+		}
+		return result;
+	}
+	
+	/**
+	 * Check whether we have all the required information to search for this object matches.
+	 */
+	private boolean readyForThisTest(Comparison inProgress, EObject fastCheck) {
+		EObject eContainer = fastCheck.eContainer();
+		if (eContainer != null && isInScope(eContainer)) {
+			return inProgress.getMatch(eContainer) != null;
+		}
+		return true;
+	}
+	
+	/**
+	 * return the closest EObject of the passed one found in the sideToFind storage.
+	 */
+	// lyt
+	private EObject findTheClosest(Comparison inProgress, final EObject eObj, Set<EObject> original,
+			Set<EObject> storageToSearchFor, boolean shouldDoubleCheck) {
+		
+		/*
+		 * We are starting by looking for EObject having a distance of 0. It means we'll iterate two times in
+		 * the worst case but it is very likely that the EObject has another version with a distance of 0. It
+		 * is also based on the assumption that calling distance() with a 0 max distance triggers shortcuts
+		 * and is faster than calling the same distance() method with a max_distance > 0.
+		 */
+		Candidate best = findIdenticMatch(inProgress, eObj, storageToSearchFor);
+		if (best.some()) {
+			return best.eObject;
+		}
+
+		SortedMap<Double, EObject> candidates = Maps.newTreeMap();
+		/*
+		 * We could not find an EObject which is identical, let's search again and find the closest EObject.
+		 */
+		Iterator<EObject> it = storageToSearchFor.iterator();
+		while (best.distance != 0 && it.hasNext()) {
+			EObject potentialClosest = it.next();
+			double dist = meter.distance(inProgress, eObj, potentialClosest);
+			if (dist < best.distance) {
+				if (shouldDoubleCheck) {
+					// We need to double check the currentlyDigging has the same object as the closest !
+					candidates.put(Double.valueOf(dist), potentialClosest);
+				} else {
+					best.distance = dist;
+					best.eObject = potentialClosest;
+				}
+			}
+		}
+		if (shouldDoubleCheck) {
+			for (Entry<Double, EObject> entry : candidates.entrySet()) {
+				EObject doubleCheck = findTheClosest(inProgress, entry.getValue(), storageToSearchFor, original,
+						false);
+				if (doubleCheck == eObj) {
+					best.eObject = entry.getValue();
+					best.distance = entry.getKey().doubleValue();
+					break;
+				}
+			}
+		}
+		return best.eObject;
+	}
+	
+	/**
+	 * Look for a perfect match (identic content) in the given list of candidates.
+	 */
+	private Candidate findIdenticMatch(Comparison inProgress, final EObject eObj, Set<EObject> candidates) {
+		Iterator<EObject> it = candidates.iterator();
+		Candidate best = new Candidate();
+
+		while (it.hasNext() && !best.some()) {
+			EObject fastCheck = it.next();
+			if(readyForThisTest(inProgress, fastCheck)) {
+				if (meter.areIdentic(inProgress, eObj, fastCheck)) {
+					best.eObject = fastCheck;
+					best.distance = 0;
+				}
+			}
+		}
+		return best;
+	}
+	
+	private static class Candidate {
+		/**
+		 * an EObject.
+		 */
+		protected EObject eObject;
+
+		/**
+		 * A distance.
+		 */
+		protected double distance = Double.MAX_VALUE;
+
+		/**
+		 * return true of the candidate has an {@link EObject}.
+		 * 
+		 * @return true of the candidate has an {@link EObject}.
+		 */
+		public boolean some() {
+			return eObject != null;
+		}
+	}
+	
 }
 

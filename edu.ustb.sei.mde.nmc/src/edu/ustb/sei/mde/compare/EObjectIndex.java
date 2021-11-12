@@ -1,6 +1,6 @@
 package edu.ustb.sei.mde.compare;
 
-import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.emf.ecore.EObject;
 
@@ -21,21 +21,6 @@ public interface EObjectIndex {
 	Iterable<EObject> getValuesStillThere(Side side);
 
 	/**
-	 * Return the closest EObjects found in other sides than the one given.
-	 * 
-	 * @param inProgress
-	 *            the comparison currently being computed. It will not be changed directly but only queried to
-	 *            know if some element has already been matched or not.
-	 * @param eObj
-	 *            the base EObject used to lookup similar ones.
-	 * @param side
-	 *            the side of the passed EObject.
-	 * @return a map of Side, EObjects, returning all the found objects (and the passed one) which are the
-	 *         closests.
-	 */
-	Map<Side, EObject> findClosests(Comparison inProgress, EObject eObj, Side side);
-
-	/**
 	 * Remove an object from the index.
 	 * 
 	 * @param eObj
@@ -54,7 +39,15 @@ public interface EObjectIndex {
 	 *            the side in which it should be registered.
 	 */
 	void index(EObject eObj, Side side);
-
+		
+	// lyt
+	Set<EObject> getLefts(EObject obj);
+	
+	Set<EObject> getRights(EObject obj);
+	
+	Set<EObject> getOrigins(EObject obj);
+	
+	
 	/**
 	 * An enumeration used in the API to specify sides.
 	 */

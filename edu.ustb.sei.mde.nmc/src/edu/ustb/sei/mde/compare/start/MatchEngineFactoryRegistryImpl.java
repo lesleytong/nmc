@@ -1,20 +1,13 @@
 package edu.ustb.sei.mde.compare.start;
 
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Lists.newArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 
-import edu.ustb.sei.mde.compare.IComparisonScope;
 import edu.ustb.sei.mde.compare.IMatchEngine;
 import edu.ustb.sei.mde.compare.match.UseIdentifiers;
 import edu.ustb.sei.mde.compare.match.WeightProviderDescriptorRegistryImpl;
-
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -54,64 +47,9 @@ public class MatchEngineFactoryRegistryImpl implements IMatchEngine.Factory.Regi
 		return registry;
 	}
 
-	/**
-	 * {@inheritDoc}
-	 * 
-	 * @see org.eclipse.emf.compare.match.IMatchEngine.Factory.Registry#getHighestRankingMatchEngine(java.lang.Object)
-	 */
-	public IMatchEngine.Factory getHighestRankingMatchEngineFactory(IComparisonScope scope) {
-		Iterator<IMatchEngine.Factory> matchEngineFactories = getMatchEngineFactories(scope).iterator();
-
-		IMatchEngine.Factory ret = null;
-
-		if (matchEngineFactories.hasNext()) {
-			IMatchEngine.Factory highestRanking = matchEngineFactories.next();
-			while (matchEngineFactories.hasNext()) {
-				IMatchEngine.Factory engineFactory = matchEngineFactories.next();
-				if (engineFactory.getRanking() > highestRanking.getRanking()) {
-					highestRanking = engineFactory;
-				}
-			}
-			ret = highestRanking;
-		}
-
-		return ret;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * 
-	 * @see org.eclipse.emf.compare.match.IMatchEngine.Factory.Registry#getMatchEngines(org.eclipse.emf.compare.scope.IComparisonScope)
-	 */
-	public List<IMatchEngine.Factory> getMatchEngineFactories(IComparisonScope scope) {
-		Iterable<IMatchEngine.Factory> matchEngineFactories = filter(map.values(),
-				isMatchEngineFactoryActivable(scope));
-		List<IMatchEngine.Factory> ret = newArrayList();
-		for (IMatchEngine.Factory matchEngineFactory : matchEngineFactories) {
-			ret.add(matchEngineFactory);
-		}
-		return ret;
-	}
-
-	/**
-	 * Returns a predicate that represents the activation condition based on the scope.
-	 * 
-	 * @param scope
-	 *            The scope on which the group provider will be applied.
-	 * @return A predicate that represents the activation condition based on the scope.
-	 */
-	private static Predicate<IMatchEngine.Factory> isMatchEngineFactoryActivable(
-			final IComparisonScope scope) {
-		return new Predicate<IMatchEngine.Factory>() {
-			/**
-			 * {@inheritDoc}
-			 * 
-			 * @see com.google.common.base.Predicate#apply(java.lang.Object)
-			 */
-			public boolean apply(IMatchEngine.Factory factory) {
-				return factory.isMatchEngineFactoryFor(scope);
-			}
-		};
+	// lyt: 如果设置了优先级更高的，map中只有一个
+	public IMatchEngine.Factory getMatchEngineFactory(){
+		return map.values().iterator().next();		
 	}
 
 	/**

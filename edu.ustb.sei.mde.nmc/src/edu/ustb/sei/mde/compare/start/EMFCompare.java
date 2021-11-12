@@ -2,6 +2,10 @@ package edu.ustb.sei.mde.compare.start;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.List;
+
+import org.eclipse.emf.ecore.EObject;
+
 import edu.ustb.sei.mde.compare.Comparison;
 import edu.ustb.sei.mde.compare.IComparisonScope;
 import edu.ustb.sei.mde.compare.IMatchEngine;
@@ -34,6 +38,9 @@ public class EMFCompare {
 
 	/** The registry we'll use to create a match engine for this comparison. */
 	private final IMatchEngine.Factory.Registry matchEngineFactoryRegistry;
+	
+	// lyt
+	protected IMatchEngine matchEngine;
 
 	/**
 	 * Creates a new EMFCompare object able to compare Notifier with the help of
@@ -77,12 +84,26 @@ public class EMFCompare {
 		checkNotNull(scope);
 
 		Comparison comparison = null;
-
-		comparison = matchEngineFactoryRegistry.getHighestRankingMatchEngineFactory(scope).getMatchEngine()
-				.match(scope);
-
+		
+		comparison = getMatchEngine().match(scope);
+		
 		return comparison;
 	}
+		
+	// lyt
+	public IMatchEngine getMatchEngine() {
+		if(matchEngine == null) {
+			matchEngine = matchEngineFactoryRegistry.getMatchEngineFactory().getMatchEngine();
+		} 
+		return matchEngine;
+	}
+	
+	// lyt
+	public void compareADD(Comparison comparison, List<EObject> leftEObjects, List<EObject> rightEObjects) {
+		
+		getMatchEngine().matchADD(comparison, leftEObjects, rightEObjects);
+		
+	}	
 
 	/**
 	 * Creates a new builder to configure the creation of a new EMFCompare object.

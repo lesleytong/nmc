@@ -18,13 +18,13 @@ import com.google.common.collect.Lists;
 import edu.ustb.sei.mde.compare.CompareFactory;
 import edu.ustb.sei.mde.compare.Comparison;
 import edu.ustb.sei.mde.compare.EqualityHelperExtensionProvider;
-import edu.ustb.sei.mde.compare.IComparisonFactory;
 import edu.ustb.sei.mde.compare.IComparisonScope;
 import edu.ustb.sei.mde.compare.IEObjectMatcher;
 import edu.ustb.sei.mde.compare.IMatchEngine;
 import edu.ustb.sei.mde.compare.IResourceMatcher;
 import edu.ustb.sei.mde.compare.MatchResource;
 import edu.ustb.sei.mde.compare.WeightProvider;
+import edu.ustb.sei.mde.compare.internal.ComparisonSpec;
 
 /**
  * The Match engine orchestrates the matching process : it takes an {@link IComparisonScope scope} as input,
@@ -47,9 +47,6 @@ public class DefaultMatchEngine implements IMatchEngine {
 	/** The strategy that will actually pair Resources together. */
 	private final IResourceMatcher resourceMatcher;
 
-	/** The factory that will be use to instantiate Comparison as return by match() methods. */
-	private final IComparisonFactory comparisonFactory;
-
 	/**
 	 * This default engine delegates the pairing of EObjects to an {@link IEObjectMatcher}.
 	 * 
@@ -59,8 +56,9 @@ public class DefaultMatchEngine implements IMatchEngine {
 	 *            factory that will be use to instantiate Comparison as return by match() methods.
 	 * @since 3.0
 	 */
-	public DefaultMatchEngine(IEObjectMatcher matcher, IComparisonFactory comparisonFactory) {
-		this(matcher, new StrategyResourceMatcher(), comparisonFactory);
+	// lyt
+	public DefaultMatchEngine(IEObjectMatcher matcher) {
+		this(matcher, new StrategyResourceMatcher());
 	}
 
 	/**
@@ -74,11 +72,10 @@ public class DefaultMatchEngine implements IMatchEngine {
 	 *            factory that will be use to instantiate Comparison as return by match() methods.
 	 * @since 3.2
 	 */
-	public DefaultMatchEngine(IEObjectMatcher eObjectMatcher, IResourceMatcher resourceMatcher,
-			IComparisonFactory comparisonFactory) {
+	// lyt
+	public DefaultMatchEngine(IEObjectMatcher eObjectMatcher, IResourceMatcher resourceMatcher) {
 		this.eObjectMatcher = checkNotNull(eObjectMatcher);
 		this.resourceMatcher = checkNotNull(resourceMatcher);
-		this.comparisonFactory = checkNotNull(comparisonFactory);
 	}
 
 	/**
@@ -88,22 +85,28 @@ public class DefaultMatchEngine implements IMatchEngine {
 	 *      org.eclipse.emf.common.util.Monitor)
 	 */
 	public Comparison match(IComparisonScope scope) {
-		long start = System.currentTimeMillis();
 
-		Comparison comparison = comparisonFactory.createComparison();
+		// lyt: 不用comparisonFactory
+		Comparison comparison = new ComparisonSpec();
 
 		final Notifier left = scope.getLeft();
 		final Notifier right = scope.getRight();
 		final Notifier origin = scope.getOrigin();
 
 		comparison.setThreeWay(origin != null);
-
 		match(comparison, scope, left, right, origin);
-
-		long end = System.currentTimeMillis();
-		System.out.println("MATCH TIME: " + (end-start) + " ms.\n");
-		
 		return comparison;
+	}
+	
+	// lyt
+	public void matchADD(Comparison comparison, List<EObject> leftEObjects, 
+			List<EObject> rightEObjects) {
+		
+		comparison.setThreeWay(false);
+		
+		getEObjectMatcher().createMatches(comparison, leftEObjects.iterator(), 
+				rightEObjects.iterator(), emptyIterator());	// can origin be null?
+		
 	}
 
 	/**
@@ -223,35 +226,8 @@ public class DefaultMatchEngine implements IMatchEngine {
 	 */
 	protected void match(Comparison comparison, IComparisonScope scope, Resource left, Resource right,
 			Resource origin) {
-		// Our "roots" are Resources. Consider them matched
-		final MatchResource match = CompareFactory.eINSTANCE.createMatchResource();
-
-		match.setLeft(left);
-		match.setRight(right);
-		match.setOrigin(origin);
-
-		if (left != null) {
-			URI uri = left.getURI();
-			if (uri != null) {
-				match.setLeftURI(uri.toString());
-			}
-		}
-
-		if (right != null) {
-			URI uri = right.getURI();
-			if (uri != null) {
-				match.setRightURI(uri.toString());
-			}
-		}
-
-		if (origin != null) {
-			URI uri = origin.getURI();
-			if (uri != null) {
-				match.setOriginURI(uri.toString());
-			}
-		}
-
-		comparison.getMatchedResources().add(match);
+		
+		// lyt: 不用matchedResources()
 
 		// We need at least two resources to match them
 		if (atLeastTwo(left == null, right == null, origin == null)) {
@@ -380,18 +356,24 @@ public class DefaultMatchEngine implements IMatchEngine {
 		final EditionDistance editionDistance = new EditionDistance(weightProviderRegistry,
 				equalityHelperExtensionProviderRegistry);
 		final CachingDistance cachedDistance = new CachingDistance(editionDistance);
+		// lyt: 指定Index
+		ByTypeIndex byTypeIndex = new ByTypeIndex();	
+		
 		switch (useIDs) {
 			case NEVER:
-				matcher = new ProximityEObjectMatcher(cachedDistance);
+				matcher = new ProximityEObjectMatcher(cachedDistance, byTypeIndex);
 				break;
 			case ONLY:
 				matcher = new IdentifierEObjectMatcher();
+				break;
+			case HASH:
+				matcher = new HashEObjectMatcher();
 				break;
 			case WHEN_AVAILABLE:
 				// fall through to default
 			default:
 				// Use an ID matcher, delegating to proximity when no ID is available
-				final IEObjectMatcher contentMatcher = new ProximityEObjectMatcher(cachedDistance);
+				final IEObjectMatcher contentMatcher = new ProximityEObjectMatcher(cachedDistance, byTypeIndex);
 				matcher = new IdentifierEObjectMatcher(contentMatcher);
 				break;
 

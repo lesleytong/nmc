@@ -2,6 +2,8 @@ package edu.ustb.sei.mde.compare;
 
 import java.util.List;
 
+import org.eclipse.emf.ecore.EObject;
+
 /**
  * This class defines the general contract of a Matching engine. We expect subclasses to have a public,
  * no-argument default constructor for instantiation.
@@ -40,6 +42,9 @@ public interface IMatchEngine {
 	 * @return An initialized {@link Comparison} model with all matches determined.
 	 */
 	Comparison match(IComparisonScope scope);
+	
+	// lyt
+	void matchADD(Comparison comparison, List<EObject> leftEObjects, List<EObject> rightEObjects);
 
 	/**
 	 * Wrapper describing the given match engine.
@@ -92,23 +97,8 @@ public interface IMatchEngine {
 		 */
 		interface Registry {
 
-			/**
-			 * Returns the match engine factory, for the given scope, owning the highest ranking.
-			 * 
-			 * @param scope
-			 *            The given scope.
-			 * @return The found match engine factory.
-			 */
-			IMatchEngine.Factory getHighestRankingMatchEngineFactory(IComparisonScope scope);
-
-			/**
-			 * Returns the list of {@link IMatchEngine.Factory} contained in the registry.
-			 * 
-			 * @param scope
-			 *            The scope on which the match engine factories will be applied.
-			 * @return The list of {@link IMatchEngine.Factory} contained in the registry.
-			 */
-			List<IMatchEngine.Factory> getMatchEngineFactories(IComparisonScope scope);
+			// lyt
+			IMatchEngine.Factory getMatchEngineFactory();
 
 			/**
 			 * Add to the registry the given {@link IMatchEngine.Factory}.

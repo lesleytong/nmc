@@ -53,25 +53,6 @@ public class CompareFactoryImpl extends EFactoryImpl implements CompareFactory {
 
 	/**
 	 * <!-- begin-user-doc --> <!-- end-user-doc -->
-	 * @generated
-	 */
-	@Override
-	public EObject create(EClass eClass) {
-		switch (eClass.getClassifierID()) {
-			case ComparePackage.COMPARISON:
-				return createComparison();
-			case ComparePackage.MATCH_RESOURCE:
-				return createMatchResource();
-			case ComparePackage.MATCH:
-				return createMatch();
-			default:
-				throw new IllegalArgumentException(
-						"The class '" + eClass.getName() + "' is not a valid classifier"); //$NON-NLS-1$ //$NON-NLS-2$
-		}
-	}
-
-	/**
-	 * <!-- begin-user-doc --> <!-- end-user-doc -->
 	 * @generated NOT
 	 */
 	public Comparison createComparison() {
@@ -93,14 +74,6 @@ public class CompareFactoryImpl extends EFactoryImpl implements CompareFactory {
 	 */
 	public Match createMatch() {
 		return new MatchSpec();
-	}
-
-	/**
-	 * <!-- begin-user-doc --> <!-- end-user-doc -->
-	 * @generated
-	 */
-	public ComparePackage getComparePackage() {
-		return (ComparePackage)getEPackage();
 	}
 
 } // CompareFactoryImpl

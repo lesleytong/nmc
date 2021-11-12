@@ -62,10 +62,10 @@ public class ComparisonSpec extends ComparisonImpl {
 	 */
 	@Override
 	public IEqualityHelper getEqualityHelper() {
-		IEqualityHelper ret = (IEqualityHelper)EcoreUtil.getExistingAdapter(this, IEqualityHelper.class);
-		if (ret == null) {
+		IEqualityHelper ret = (IEqualityHelper)EcoreUtil.getExistingAdapter(this, IEqualityHelper.class);			
+		if (ret == null) {				
 			ret = new EqualityHelper(EqualityHelper.createDefaultCache(CacheBuilder.newBuilder()
-					.maximumSize(DefaultMatchEngine.DEFAULT_EOBJECT_URI_CACHE_MAX_SIZE)));
+					.maximumSize(DefaultMatchEngine.DEFAULT_EOBJECT_URI_CACHE_MAX_SIZE)));				
 			this.eAdapters().add(ret);
 			ret.setTarget(this);
 		}

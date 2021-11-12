@@ -1,13 +1,10 @@
 package edu.ustb.sei.mde.compare.start;
 
 import edu.ustb.sei.mde.compare.EqualityHelperExtensionProvider;
-import edu.ustb.sei.mde.compare.IComparisonFactory;
 import edu.ustb.sei.mde.compare.IComparisonScope;
 import edu.ustb.sei.mde.compare.IEObjectMatcher;
 import edu.ustb.sei.mde.compare.IMatchEngine;
 import edu.ustb.sei.mde.compare.WeightProvider;
-import edu.ustb.sei.mde.compare.match.DefaultComparisonFactory;
-import edu.ustb.sei.mde.compare.match.DefaultEqualityHelperFactory;
 import edu.ustb.sei.mde.compare.match.DefaultMatchEngine;
 import edu.ustb.sei.mde.compare.match.EqualityHelperExtensionProviderDescriptorRegistryImpl;
 import edu.ustb.sei.mde.compare.match.UseIdentifiers;
@@ -97,13 +94,13 @@ public class MatchEngineFactoryImpl implements IMatchEngine.Factory {
 	 * 
 	 * @see org.eclipse.emf.compare.match.IMatchEngine.Factory#getMatchEngine()
 	 */
+	// lyt
 	public IMatchEngine getMatchEngine() {
 		if (matchEngine == null) {
-			final IComparisonFactory comparisonFactory = new DefaultComparisonFactory(
-					new DefaultEqualityHelperFactory());
 			final IEObjectMatcher matcher = DefaultMatchEngine.createDefaultEObjectMatcher(
 					shouldUseIdentifiers, weightProviderRegistry, equalityHelperExtensionProviderRegistry);
-			matchEngine = new DefaultMatchEngine(matcher, comparisonFactory);
+			matchEngine = new DefaultMatchEngine(matcher);
+			
 		}
 		return matchEngine;
 	}

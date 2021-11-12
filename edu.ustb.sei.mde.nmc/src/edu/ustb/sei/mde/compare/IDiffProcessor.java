@@ -81,45 +81,5 @@ public interface IDiffProcessor {
 	 */
 	void featureMapChange(Match match, EAttribute attribute, Object value, DifferenceKind kind,
 			DifferenceSource source);
-
-	/**
-	 * This will be called whenever the diff engine detected the addition (or removal) of a root in a given
-	 * Resource.
-	 * 
-	 * @param match
-	 *            The match to which this difference should be attached.
-	 * @param uri
-	 *            The uri of the resource we attached this element to in case of an {@link DifferenceKind#ADD}
-	 *            , or the uri of the resource it was attached to in case of a {@link DifferenceKind#DELETE}
-	 *            difference.
-	 * @param kind
-	 *            Kind of this difference.
-	 * @param source
-	 *            Source of the difference. For two way comparisons, this will always be
-	 *            {@link DifferenceSource#LEFT}. Otherwise, this will indicate the side on which this
-	 *            difference has been detected.
-	 */
-	void resourceAttachmentChange(Match match, String uri, DifferenceKind kind, DifferenceSource source);
-
-	/**
-	 * This will be called whenever the diff engine detects the change of a Resource location.
-	 * 
-	 * @param matchResource
-	 *            The matchResource to which this difference should be attached.
-	 * @param baseLocation
-	 *            The base location (left side in case of a two way comparison, origin or left side in case of
-	 *            a three way comparison).
-	 * @param changedLocation
-	 *            The change location (right side in case of a two way comparison, left or right side in case
-	 *            of a three way comparison).
-	 * @param kind
-	 *            Kind of this difference.
-	 * @param source
-	 *            Source of the difference. For two way comparisons, this will always be
-	 *            {@link DifferenceSource#LEFT}. Otherwise, this will indicate the side on which this
-	 *            difference has been detected.
-	 */
-	void resourceLocationChange(MatchResource matchResource, String baseLocation, String changedLocation,
-			DifferenceKind kind, DifferenceSource source);
 }
 

@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.log4j.Logger;
 import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EReference;
@@ -45,9 +44,6 @@ public class DefaultDiffEngine{
 	 * attributes can legitimately use.
 	 */
 	protected static final Object UNMATCHED_VALUE = new Object();
-
-	/** The logger. */
-	private static final Logger LOGGER = Logger.getLogger(DefaultDiffEngine.class);
 
 	/**
 	 * The diff processor that will be used by this engine. Should be passed by the constructor and accessed
@@ -101,7 +97,7 @@ public class DefaultDiffEngine{
 	 *            The monitor to report progress or to check for cancellation.
 	 */
 	protected void checkForDifferences(Match match) {
-		Comparison comparison = match.getComparison();
+		Comparison comparison = match.getComparison();		
 		FeatureFilterAdapter ffa = (FeatureFilterAdapter)EcoreUtil.getExistingAdapter(comparison,
 				FeatureFilterAdapter.class);
 		if (ffa == null) {
@@ -143,97 +139,6 @@ public class DefaultDiffEngine{
 		for (Match submatch : match.getSubmatches()) {
 			internalCheckForDifferences(submatch, featureFilter);
 		}
-	}
-
-	/**
-	 * Checks whether the given {@link Match}'s sides have changed resources. This will only be called for
-	 * {@link Match} elements referencing the root(s) of an EMF Resource.
-	 * 
-	 * @param match
-	 *            The match that is to be checked.
-	 * @param monitor
-	 *            The monitor to report progress or to check for cancellation.
-	 */
-	protected void checkResourceAttachment(Match match) {
-		final Comparison comparison = match.getComparison();
-
-		if (comparison.getMatchedResources().isEmpty()) {
-			// This is a comparison of EObjects, do not go up to the resources
-			return;
-		}
-
-		final EObject left = match.getLeft();
-		final EObject right = match.getRight();
-		final EObject origin = match.getOrigin();
-
-		final boolean originIsRoot = isRoot(origin);
-
-		boolean threeWay = comparison.isThreeWay();
-		if (threeWay) {
-			if (originIsRoot) {
-				// Uncontrol or delete, the "resource attachment" is a deletion
-				if (!isRoot(left)) {
-					final String uri = origin.eResource().getURI().toString();
-					getDiffProcessor().resourceAttachmentChange(match, uri, DifferenceKind.DELETE,
-							DifferenceSource.LEFT);
-				}
-				if (!isRoot(right)) {
-					final String uri = origin.eResource().getURI().toString();
-					getDiffProcessor().resourceAttachmentChange(match, uri, DifferenceKind.DELETE,
-							DifferenceSource.RIGHT);
-				}
-				// Cases where isRoot(left) == true or isRoot(right) == true
-				// are handled in org.eclipse.emf.compare.egit by EGitPostProcessor#postDiff
-			} else {
-				// Control or add, the "resource attachment" is an addition
-				if (isRoot(left)) {
-					final String uri = left.eResource().getURI().toString();
-					getDiffProcessor().resourceAttachmentChange(match, uri, DifferenceKind.ADD,
-							DifferenceSource.LEFT);
-				}
-				if (isRoot(right)) {
-					final String uri = right.eResource().getURI().toString();
-					getDiffProcessor().resourceAttachmentChange(match, uri, DifferenceKind.ADD,
-							DifferenceSource.RIGHT);
-				}
-			}
-		} else {
-			final boolean leftIsRoot = isRoot(left);
-			final boolean rightIsRoot = isRoot(right);
-			if (leftIsRoot && !rightIsRoot) {
-				final String uri = left.eResource().getURI().toString();
-				getDiffProcessor().resourceAttachmentChange(match, uri, DifferenceKind.ADD,
-						DifferenceSource.LEFT);
-			} else if (!leftIsRoot && rightIsRoot) {
-				final String uri = right.eResource().getURI().toString();
-				getDiffProcessor().resourceAttachmentChange(match, uri, DifferenceKind.DELETE,
-						DifferenceSource.LEFT);
-			}
-		}
-	}
-
-	/**
-	 * Checks whether the given EObject is a root of its resource or not.
-	 * 
-	 * @param eObj
-	 *            The EObject to check.
-	 * @return <code>true</code> if this object is a root of its containing resource, <code>false</code>
-	 *         otherwise.
-	 */
-	protected static boolean isRoot(EObject eObj) {
-		if (eObj instanceof InternalEObject) {
-			return ((InternalEObject)eObj).eDirectResource() != null;
-		}
-
-		boolean isRoot = false;
-		if (eObj != null) {
-			final Resource res = eObj.eResource();
-			final EObject container = eObj.eContainer();
-			// <root of containment tree> || <root of fragment>
-			isRoot = (container == null && res != null)
-					|| (container != null && container.eResource() != res);
-		}
-		return isRoot;
 	}
 
 	/**

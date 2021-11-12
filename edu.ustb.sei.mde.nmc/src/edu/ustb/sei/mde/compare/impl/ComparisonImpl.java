@@ -100,16 +100,6 @@ public class ComparisonImpl extends MinimalEObjectImpl.Container implements Comp
 	 * 
 	 * @generated
 	 */
-	@Override
-	protected EClass eStaticClass() {
-		return ComparePackage.Literals.COMPARISON;
-	}
-
-	/**
-	 * <!-- begin-user-doc --> <!-- end-user-doc -->
-	 * 
-	 * @generated
-	 */
 	public EList<MatchResource> getMatchedResources() {
 		if (matchedResources == null) {
 			matchedResources = new EObjectContainmentWithInverseEList<MatchResource>(MatchResource.class, this,
@@ -157,21 +147,6 @@ public class ComparisonImpl extends MinimalEObjectImpl.Container implements Comp
 	 * 
 	 * @generated
 	 */
-	@SuppressWarnings("unchecked")
-	@Override
-	public NotificationChain eInverseAdd(InternalEObject otherEnd, int featureID, NotificationChain msgs) {
-		switch (featureID) {
-		case ComparePackage.COMPARISON__MATCHED_RESOURCES:
-			return ((InternalEList<InternalEObject>) (InternalEList<?>) getMatchedResources()).basicAdd(otherEnd, msgs);
-		}
-		return super.eInverseAdd(otherEnd, featureID, msgs);
-	}
-
-	/**
-	 * <!-- begin-user-doc --> <!-- end-user-doc -->
-	 * 
-	 * @generated
-	 */
 	public boolean isThreeWay() {
 		return threeWay;
 	}
@@ -196,6 +171,31 @@ public class ComparisonImpl extends MinimalEObjectImpl.Container implements Comp
 	 * @generated
 	 */
 	@Override
+	protected EClass eStaticClass() {
+		return ComparePackage.Literals.COMPARISON;
+	}
+
+	/**
+	 * <!-- begin-user-doc --> <!-- end-user-doc -->
+	 * 
+	 * @generated
+	 */
+//	@SuppressWarnings("unchecked")
+//	@Override
+//	public NotificationChain eInverseAdd(InternalEObject otherEnd, int featureID, NotificationChain msgs) {
+//		switch (featureID) {
+//		case ComparePackage.COMPARISON__MATCHED_RESOURCES:
+//			return ((InternalEList<InternalEObject>) (InternalEList<?>) getMatchedResources()).basicAdd(otherEnd, msgs);
+//		}
+//		return super.eInverseAdd(otherEnd, featureID, msgs);
+//	}
+
+	/**
+	 * <!-- begin-user-doc --> <!-- end-user-doc -->
+	 * 
+	 * @generated
+	 */
+	@Override
 	public NotificationChain eInverseRemove(InternalEObject otherEnd, int featureID, NotificationChain msgs) {
 		switch (featureID) {
 		case ComparePackage.COMPARISON__MATCHED_RESOURCES:
@@ -204,6 +204,24 @@ public class ComparisonImpl extends MinimalEObjectImpl.Container implements Comp
 			return ((InternalEList<?>) getMatches()).basicRemove(otherEnd, msgs);
 		}
 		return super.eInverseRemove(otherEnd, featureID, msgs);
+	}
+
+	/**
+	 * <!-- begin-user-doc --> <!-- end-user-doc -->
+	 * 
+	 * @generated
+	 */
+	@Override
+	public boolean eIsSet(int featureID) {
+		switch (featureID) {
+		case ComparePackage.COMPARISON__MATCHED_RESOURCES:
+			return matchedResources != null && !matchedResources.isEmpty();
+		case ComparePackage.COMPARISON__MATCHES:
+			return matches != null && !matches.isEmpty();
+		case ComparePackage.COMPARISON__THREE_WAY:
+			return threeWay != THREE_WAY_EDEFAULT;
+		}
+		return super.eIsSet(featureID);
 	}
 
 	/**
@@ -253,57 +271,20 @@ public class ComparisonImpl extends MinimalEObjectImpl.Container implements Comp
 	 * 
 	 * @generated
 	 */
-	@Override
-	public void eUnset(int featureID) {
-		switch (featureID) {
-		case ComparePackage.COMPARISON__MATCHED_RESOURCES:
-			getMatchedResources().clear();
-			return;
-		case ComparePackage.COMPARISON__MATCHES:
-			getMatches().clear();
-			return;
-		case ComparePackage.COMPARISON__THREE_WAY:
-			setThreeWay(THREE_WAY_EDEFAULT);
-			return;
-		}
-		super.eUnset(featureID);
-	}
-
-	/**
-	 * <!-- begin-user-doc --> <!-- end-user-doc -->
-	 * 
-	 * @generated
-	 */
-	@Override
-	public boolean eIsSet(int featureID) {
-		switch (featureID) {
-		case ComparePackage.COMPARISON__MATCHED_RESOURCES:
-			return matchedResources != null && !matchedResources.isEmpty();
-		case ComparePackage.COMPARISON__MATCHES:
-			return matches != null && !matches.isEmpty();
-		case ComparePackage.COMPARISON__THREE_WAY:
-			return threeWay != THREE_WAY_EDEFAULT;
-		}
-		return super.eIsSet(featureID);
-	}
-
-	/**
-	 * <!-- begin-user-doc --> <!-- end-user-doc -->
-	 * 
-	 * @generated
-	 */
-	@Override
-	public String toString() {
-		if (eIsProxy()) {
-			return super.toString();
-		}
-
-		StringBuffer result = new StringBuffer(super.toString());
-		result.append(" (threeWay: "); //$NON-NLS-1$
-		result.append(threeWay);
-		result.append(", diagnostic: "); //$NON-NLS-1$
-		result.append(')');
-		return result.toString();
-	}
+//	@Override
+//	public void eUnset(int featureID) {
+//		switch (featureID) {
+//		case ComparePackage.COMPARISON__MATCHED_RESOURCES:
+//			getMatchedResources().clear();
+//			return;
+//		case ComparePackage.COMPARISON__MATCHES:
+//			getMatches().clear();
+//			return;
+//		case ComparePackage.COMPARISON__THREE_WAY:
+//			setThreeWay(THREE_WAY_EDEFAULT);
+//			return;
+//		}
+//		super.eUnset(featureID);
+//	}
 
 } // ComparisonImpl

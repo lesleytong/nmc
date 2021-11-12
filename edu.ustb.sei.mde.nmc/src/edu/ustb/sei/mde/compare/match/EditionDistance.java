@@ -173,6 +173,7 @@ public class EditionDistance implements DistanceFunction {
 		double maxDist = Math.max(getThresholdAmount(a), getThresholdAmount(b));
 		double measuredDist = new CountingDiffEngine(maxDist, this.fakeComparison)
 				.measureDifferences(inProgress, a, b);
+		
 		if (measuredDist > maxDist) {
 			return Double.MAX_VALUE;
 		}
@@ -388,30 +389,6 @@ public class EditionDistance implements DistanceFunction {
 		}
 
 		/**
-		 * {@inheritDoc}
-		 * 
-		 * @see org.eclipse.emf.compare.diff.IDiffProcessor#resourceAttachmentChange(org.eclipse.emf.compare.Match,
-		 *      java.lang.String, org.eclipse.emf.compare.DifferenceKind,
-		 *      org.eclipse.emf.compare.DifferenceSource)
-		 */
-		public void resourceAttachmentChange(Match match, String uri, DifferenceKind kind,
-				DifferenceSource source) {
-			// Not important for the distance computation
-		}
-
-		/**
-		 * {@inheritDoc}
-		 * 
-		 * @see org.eclipse.emf.compare.diff.IDiffProcessor#resourceLocationChange(org.eclipse.emf.compare.
-		 *      MatchResource, java.lang.String, java.lang.String org.eclipse.emf.compare.DifferenceKind,
-		 *      org.eclipse.emf.compare.DifferenceSource)
-		 */
-		public void resourceLocationChange(MatchResource matchResource, String baseLocation,
-				String changedLocation, DifferenceKind kind, DifferenceSource source) {
-			// Not important for the distance computation
-		}
-
-		/**
 		 * return the computed distance.
 		 * 
 		 * @return the computed distance.
@@ -459,13 +436,6 @@ public class EditionDistance implements DistanceFunction {
 		}
 
 		@Override
-		protected void checkResourceAttachment(Match match) {
-			/*
-			 * we really don't want to check that...
-			 */
-		}
-
-		@Override
 		protected void computeDifferences(Match match, EAttribute attribute, boolean checkOrdering) {
 			if (getCounter().getComputedDistance() <= maxDistance) {
 				super.computeDifferences(match, attribute, checkOrdering);
@@ -494,6 +464,7 @@ public class EditionDistance implements DistanceFunction {
 			Match fakeMatch = createOrUpdateFakeMatch(a, b);
 			getCounter().reset();
 			double changes = 0;
+					
 			if (!haveSameContainer(comparisonInProgress, a, b)) {
 				changes += locationChangeCoef * weightProviderRegistry
 						.getHighestRankingWeightProvider(a.eClass().getEPackage()).getParentWeight(a);
@@ -507,15 +478,16 @@ public class EditionDistance implements DistanceFunction {
 					 */
 					changes += 5;
 				}
-
-			}
+			}					
+			
 			if (a.eContainingFeature() != b.eContainingFeature()) {
 				changes += Math.max(
 						weightProviderRegistry.getHighestRankingWeightProvider(a.eClass().getEPackage())
 								.getContainingFeatureWeight(a),
 						weightProviderRegistry.getHighestRankingWeightProvider(b.eClass().getEPackage())
 								.getContainingFeatureWeight(b));
-			}
+			}		
+			
 			if (changes <= maxDistance) {
 				checkForDifferences(fakeMatch);
 				changes += getCounter().getComputedDistance();
