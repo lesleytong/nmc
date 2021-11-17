@@ -2,6 +2,7 @@ package edu.ustb.sei.mde.compare;
 
 import java.util.Iterator;
 
+import org.apache.commons.collections4.map.MultiKeyMap;
 import org.eclipse.emf.ecore.EObject;
 
 import edu.ustb.sei.mde.compare.match.IdentifierEObjectMatcher;
@@ -45,6 +46,6 @@ public interface IEObjectMatcher {
 	 *            The monitor to report progress or to check for cancellation
 	 */
 	void createMatches(Comparison comparison, Iterator<? extends EObject> leftEObjects,
-			Iterator<? extends EObject> rightEObjects, Iterator<? extends EObject> originEObjects);
+			Iterator<? extends EObject> rightEObjects, Iterator<? extends EObject> originEObjects, MultiKeyMap<EObject, Double> distanceMap);
 }
 

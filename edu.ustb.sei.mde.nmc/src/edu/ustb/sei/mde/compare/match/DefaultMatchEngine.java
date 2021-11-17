@@ -6,6 +6,7 @@ import static java.util.Collections.emptyIterator;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.commons.collections4.map.MultiKeyMap;
 import org.eclipse.emf.common.notify.Notifier;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
@@ -100,12 +101,12 @@ public class DefaultMatchEngine implements IMatchEngine {
 	
 	// lyt
 	public void matchADD(Comparison comparison, List<EObject> leftEObjects, 
-			List<EObject> rightEObjects) {
+			List<EObject> rightEObjects, MultiKeyMap<EObject, Double> distanceMap) {
 		
 		comparison.setThreeWay(false);
 		
 		getEObjectMatcher().createMatches(comparison, leftEObjects.iterator(), 
-				rightEObjects.iterator(), emptyIterator());	// can origin be null?
+				rightEObjects.iterator(), emptyIterator(), distanceMap);	// can origin be null?
 		
 	}
 
@@ -201,7 +202,7 @@ public class DefaultMatchEngine implements IMatchEngine {
 		final Iterator<? extends EObject> rightEObjects = Iterators.concat(rightIterators.iterator());
 		final Iterator<? extends EObject> originEObjects = Iterators.concat(originIterators.iterator());
 
-		getEObjectMatcher().createMatches(comparison, leftEObjects, rightEObjects, originEObjects);
+		getEObjectMatcher().createMatches(comparison, leftEObjects, rightEObjects, originEObjects, null);
 	}
 
 	/**
@@ -257,7 +258,7 @@ public class DefaultMatchEngine implements IMatchEngine {
 			originEObjects = emptyIterator();
 		}
 
-		getEObjectMatcher().createMatches(comparison, leftEObjects, rightEObjects, originEObjects);
+		getEObjectMatcher().createMatches(comparison, leftEObjects, rightEObjects, originEObjects, null);
 
 	}
 
@@ -298,7 +299,7 @@ public class DefaultMatchEngine implements IMatchEngine {
 			originEObjects = emptyIterator();
 		}
 
-		getEObjectMatcher().createMatches(comparison, leftEObjects, rightEObjects, originEObjects);
+		getEObjectMatcher().createMatches(comparison, leftEObjects, rightEObjects, originEObjects, null);
 	}
 
 	/**

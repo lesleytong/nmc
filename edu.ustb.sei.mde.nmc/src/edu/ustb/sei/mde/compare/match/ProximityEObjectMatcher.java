@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.Map.Entry;
 
+import org.apache.commons.collections4.map.MultiKeyMap;
 import org.eclipse.emf.common.util.BasicEList;
 import org.eclipse.emf.ecore.EObject;
 
@@ -69,7 +70,7 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 	 */
 
 	public void createMatches(Comparison comparison, Iterator<? extends EObject> leftEObjects,
-			Iterator<? extends EObject> rightEObjects, Iterator<? extends EObject> originEObjects) {
+			Iterator<? extends EObject> rightEObjects, Iterator<? extends EObject> originEObjects, MultiKeyMap<EObject, Double> distanceMap) {
 		if (!leftEObjects.hasNext() && !rightEObjects.hasNext() && !originEObjects.hasNext()) {
 			return;
 		}
@@ -100,7 +101,7 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 
 		}
 
-		matchIndexedObjects(comparison);
+		matchIndexedObjects(comparison, distanceMap);
 
 //		createUnmatchesForRemainingObjects(comparison);
 		// 目前看来submatches没啥用，先注释掉
@@ -117,14 +118,14 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 	 * @param monitor
 	 *            monitor to track progress.
 	 */
-	private void matchIndexedObjects(Comparison comparison) {
+	private void matchIndexedObjects(Comparison comparison, MultiKeyMap<EObject, Double> distanceMap) {
 		Iterable<EObject> todo = index.getValuesStillThere(Side.LEFT);
 		while (todo.iterator().hasNext()) {
-			todo = matchList(comparison, todo, true);
+			todo = matchList(comparison, todo, true, distanceMap);
 		}
 		todo = index.getValuesStillThere(Side.RIGHT);
 		while (todo.iterator().hasNext()) {
-			todo = matchList(comparison, todo, true);
+			todo = matchList(comparison, todo, true, distanceMap);
 		}
 
 	}
@@ -166,7 +167,7 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 	 * @return the list of EObjects which could not be processed for some reason.
 	 */
 	private Iterable<EObject> matchList(Comparison comparison, Iterable<EObject> todoList,
-			boolean createUnmatches) {
+			boolean createUnmatches, MultiKeyMap<EObject, Double> distanceMap) {
 		Set<EObject> remainingResult = Sets.newLinkedHashSet();
 		List<EObject> requiredContainers = Lists.newArrayList();
 		Iterator<EObject> todo = todoList.iterator();
@@ -191,7 +192,7 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 			 * At this point you need to be sure the element has not been matched in any other way before.
 			 */
 			if (comparison.getMatch(next) == null) {
-				if (!tryToMatch(comparison, next, createUnmatches)) {
+				if (!tryToMatch(comparison, next, createUnmatches, distanceMap)) {
 					remainingResult.add(next);
 				}
 			}
@@ -214,7 +215,7 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 	 *            we won't try to match them afterwards) or not.
 	 * @return false if the conditions are not fulfilled to create the match, true otherwhise.
 	 */
-	private boolean tryToMatch(Comparison comparison, EObject a, boolean createUnmatches) {
+	private boolean tryToMatch(Comparison comparison, EObject a, boolean createUnmatches, MultiKeyMap<EObject, Double> distanceMap) {
 		boolean okToMatch = false;
 		Side aSide = eObjectsToSide.get(a);
 		assert aSide != null;
@@ -235,7 +236,7 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 		assert cSide != aSide;
 		
 		// lyt
-		Map<Side, EObject> closests = findClosests(comparison, a, aSide);
+		Map<Side, EObject> closests = findClosests(comparison, a, aSide, distanceMap);
 		
 		if (closests != null) {
 			EObject lObj = closests.get(bSide);
@@ -374,7 +375,7 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 	}
 
 	// lyt
-	public Map<Side, EObject> findClosests(Comparison inProgress, EObject eObj, Side passedObjectSide) {
+	public Map<Side, EObject> findClosests(Comparison inProgress, EObject eObj, Side passedObjectSide, MultiKeyMap<EObject, Double> distanceMap) {
 		
 		if (!readyForThisTest(inProgress, eObj)) {
 			return null;
@@ -387,19 +388,19 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 		Set<EObject> origins = index.getOrigins(eObj);
 		
 		if (passedObjectSide == Side.LEFT) {
-			EObject closestRight = findTheClosest(inProgress, eObj, lefts, rights, true);
-			EObject closestOrigin = findTheClosest(inProgress, eObj, lefts, origins, true);
+			EObject closestRight = findTheClosest(inProgress, eObj, lefts, rights, true, distanceMap);
+			EObject closestOrigin = findTheClosest(inProgress, eObj, lefts, origins, true, distanceMap);
 			result.put(Side.RIGHT, closestRight);
 			result.put(Side.ORIGIN, closestOrigin);
 		} else if (passedObjectSide == Side.RIGHT) {
-			EObject closestLeft = findTheClosest(inProgress, eObj, rights, lefts, true);
-			EObject closestOrigin = findTheClosest(inProgress, eObj, rights, origins, true);
+			EObject closestLeft = findTheClosest(inProgress, eObj, rights, lefts, true, distanceMap);
+			EObject closestOrigin = findTheClosest(inProgress, eObj, rights, origins, true, distanceMap);
 			result.put(Side.LEFT, closestLeft);
 			result.put(Side.ORIGIN, closestOrigin);
 
 		} else if (passedObjectSide == Side.ORIGIN) {
-			EObject closestLeft = findTheClosest(inProgress, eObj, origins, lefts, true);
-			EObject closestRight = findTheClosest(inProgress, eObj, origins, rights, true);
+			EObject closestLeft = findTheClosest(inProgress, eObj, origins, lefts, true, distanceMap);
+			EObject closestRight = findTheClosest(inProgress, eObj, origins, rights, true, distanceMap);
 			result.put(Side.LEFT, closestLeft);
 			result.put(Side.RIGHT, closestRight);
 		}
@@ -422,7 +423,7 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 	 */
 	// lyt
 	private EObject findTheClosest(Comparison inProgress, final EObject eObj, Set<EObject> original,
-			Set<EObject> storageToSearchFor, boolean shouldDoubleCheck) {
+			Set<EObject> storageToSearchFor, boolean shouldDoubleCheck, MultiKeyMap<EObject, Double> distanceMap) {
 		
 		/*
 		 * We are starting by looking for EObject having a distance of 0. It means we'll iterate two times in
@@ -432,6 +433,12 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 		 */
 		Candidate best = findIdenticMatch(inProgress, eObj, storageToSearchFor);
 		if (best.some()) {
+			
+			// record: <eObj, best.eObject, 0>
+			if(distanceMap != null) {
+				distanceMap.put(eObj, best.eObject, Double.valueOf(0));
+			}
+			
 			return best.eObject;
 		}
 
@@ -456,14 +463,20 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 		if (shouldDoubleCheck) {
 			for (Entry<Double, EObject> entry : candidates.entrySet()) {
 				EObject doubleCheck = findTheClosest(inProgress, entry.getValue(), storageToSearchFor, original,
-						false);
+						false, distanceMap);
 				if (doubleCheck == eObj) {
 					best.eObject = entry.getValue();
 					best.distance = entry.getKey().doubleValue();
+					
+					// record: <eObj, best.eObject, best.distance>
+					if(distanceMap != null) {
+						distanceMap.put(eObj, best.eObject, best.distance);
+					}
+					
 					break;
 				}
 			}
-		}
+		}				
 		return best.eObject;
 	}
 	

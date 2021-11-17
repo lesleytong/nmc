@@ -2,6 +2,7 @@ package edu.ustb.sei.mde.compare;
 
 import java.util.List;
 
+import org.apache.commons.collections4.map.MultiKeyMap;
 import org.eclipse.emf.ecore.EObject;
 
 /**
@@ -44,7 +45,7 @@ public interface IMatchEngine {
 	Comparison match(IComparisonScope scope);
 	
 	// lyt
-	void matchADD(Comparison comparison, List<EObject> leftEObjects, List<EObject> rightEObjects);
+	void matchADD(Comparison comparison, List<EObject> leftEObjects, List<EObject> rightEObjects, MultiKeyMap<EObject, Double> distanceMap);
 
 	/**
 	 * Wrapper describing the given match engine.

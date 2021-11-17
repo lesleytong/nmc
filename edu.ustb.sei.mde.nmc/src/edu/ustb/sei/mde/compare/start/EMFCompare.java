@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.List;
 
+import org.apache.commons.collections4.map.MultiKeyMap;
 import org.eclipse.emf.ecore.EObject;
 
 import edu.ustb.sei.mde.compare.Comparison;
@@ -99,9 +100,9 @@ public class EMFCompare {
 	}
 	
 	// lyt
-	public void compareADD(Comparison comparison, List<EObject> leftEObjects, List<EObject> rightEObjects) {
+	public void compareADD(Comparison comparison, List<EObject> leftEObjects, List<EObject> rightEObjects, MultiKeyMap<EObject, Double> distanceMap) {
 		
-		getMatchEngine().matchADD(comparison, leftEObjects, rightEObjects);
+		getMatchEngine().matchADD(comparison, leftEObjects, rightEObjects, distanceMap);
 		
 	}	
 

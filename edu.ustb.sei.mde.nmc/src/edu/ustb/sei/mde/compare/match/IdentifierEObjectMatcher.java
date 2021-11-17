@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.collections4.map.MultiKeyMap;
 import org.eclipse.emf.common.util.BasicDiagnostic;
 import org.eclipse.emf.common.util.Diagnostic;
 import org.eclipse.emf.common.util.URI;
@@ -106,7 +107,7 @@ public class IdentifierEObjectMatcher implements IEObjectMatcher {
 	 * {@inheritDoc}
 	 */
 	public void createMatches(Comparison comparison, Iterator<? extends EObject> leftEObjects,
-			Iterator<? extends EObject> rightEObjects, Iterator<? extends EObject> originEObjects) {
+			Iterator<? extends EObject> rightEObjects, Iterator<? extends EObject> originEObjects, MultiKeyMap<EObject, Double> distanceMap) {
 		final List<EObject> leftEObjectsNoID = Lists.newArrayList();
 		final List<EObject> rightEObjectsNoID = Lists.newArrayList();
 		final List<EObject> originEObjectsNoID = Lists.newArrayList();
@@ -122,7 +123,7 @@ public class IdentifierEObjectMatcher implements IEObjectMatcher {
 
 		if (!leftEObjectsNoID.isEmpty() || !rightEObjectsNoID.isEmpty() || !originEObjectsNoID.isEmpty()) {
 			if (delegate.isPresent()) {
-				doDelegation(comparison, leftEObjectsNoID, rightEObjectsNoID, originEObjectsNoID);
+				doDelegation(comparison, leftEObjectsNoID, rightEObjectsNoID, originEObjectsNoID, distanceMap);
 			} else {
 				for (EObject eObject : leftEObjectsNoID) {
 					Match match = CompareFactory.eINSTANCE.createMatch();
@@ -158,9 +159,9 @@ public class IdentifierEObjectMatcher implements IEObjectMatcher {
 	 *            remaining origin objects after matching
 	 */
 	protected void doDelegation(Comparison comparison, final List<EObject> leftEObjectsNoID,
-			final List<EObject> rightEObjectsNoID, final List<EObject> originEObjectsNoID) {
+			final List<EObject> rightEObjectsNoID, final List<EObject> originEObjectsNoID, MultiKeyMap<EObject, Double> distanceMap) {
 		delegate.get().createMatches(comparison, leftEObjectsNoID.iterator(), rightEObjectsNoID.iterator(),
-				originEObjectsNoID.iterator());
+				originEObjectsNoID.iterator(), distanceMap);
 	}
 
 	/**
