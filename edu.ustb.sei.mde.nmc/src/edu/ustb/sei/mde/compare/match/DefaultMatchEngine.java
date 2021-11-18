@@ -367,7 +367,7 @@ public class DefaultMatchEngine implements IMatchEngine {
 				matcher = new IdentifierEObjectMatcher();
 				break;
 			case HASH:
-				matcher = new HashEObjectMatcher();
+				matcher = new HashEObjectMatcher(cachedDistance, byTypeIndex);
 				break;
 			case WHEN_AVAILABLE:
 				// fall through to default
