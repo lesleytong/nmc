@@ -15,3 +15,8 @@ Import-Package: com.google.common.base;version="21.0.0",
  org.apache.log4j;version="1.2.15",
  org.eclipse.emf.ecore.xmi,
  org.eclipse.emf.ecore.xmi.impl
+Export-Package: edu.ustb.sei.mde.nmc.compare,
+ edu.ustb.sei.mde.nmc.compare.internal,
+ edu.ustb.sei.mde.nmc.compare.match,
+ edu.ustb.sei.mde.nmc.compare.start,
+ edu.ustb.sei.mde.nmc.nway
