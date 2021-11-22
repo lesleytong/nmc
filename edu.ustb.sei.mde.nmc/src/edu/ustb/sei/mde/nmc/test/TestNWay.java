@@ -1,6 +1,7 @@
 package edu.ustb.sei.mde.nmc.test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -10,7 +11,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.apache.commons.collections4.map.MultiKeyMap;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EAttribute;
@@ -20,7 +20,9 @@ import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EcorePackage;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
+import org.eclipse.emf.ecore.resource.impl.ResourceImpl;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
+import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 
 import edu.ustb.sei.mde.nmc.compare.Comparison;
@@ -34,6 +36,8 @@ import edu.ustb.sei.mde.nmc.compare.start.DefaultComparisonScope;
 import edu.ustb.sei.mde.nmc.compare.start.EMFCompare;
 import edu.ustb.sei.mde.nmc.compare.start.MatchEngineFactoryImpl;
 import edu.ustb.sei.mde.nmc.compare.start.MatchEngineFactoryRegistryImpl;
+import edu.ustb.sei.mde.nmc.nway.Conflict;
+import edu.ustb.sei.mde.nmc.nway.ConflictKind;
 import edu.ustb.sei.mde.nmc.nway.MaximalCliquesWithPivot;
 import edu.ustb.sei.mde.nmc.nway.RefEdge;
 import edu.ustb.sei.mde.nmc.nway.RefEdgeMulti;
@@ -50,17 +54,19 @@ public class TestNWay {
 
 		resourceSet.getPackageRegistry().put(EcorePackage.eNS_URI, EcorePackage.eINSTANCE);
 
-		URI baseURI = URI.createFileURI("D:\\eclipse-dsl-workspace\\nmc-main2\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\person.ecore");
+		URI baseURI = URI.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank.ecore");
 		URI branch1URI = URI
-				.createFileURI("D:\\eclipse-dsl-workspace\\nmc-main2\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\person1.ecore");
+				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank1.ecore");
 		URI branch2URI = URI
-				.createFileURI("D:\\eclipse-dsl-workspace\\nmc-main2\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\person2.ecore");
+				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank2.ecore");
+		URI branch3URI = URI
+				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank3.ecore");
 
 		List<URI> uriList = new ArrayList<>();
 		uriList.add(baseURI);
 		uriList.add(branch1URI);
 		uriList.add(branch2URI);
-		//uriList.add(branch3URI);
+		uriList.add(branch3URI);
 
 		int size = uriList.size();
 		List<Resource> resourceList = new ArrayList<>(size);
@@ -68,12 +74,12 @@ public class TestNWay {
 		for (int i = 0; i < size; i++) {
 			Resource resource = resourceSet.getResource(uriList.get(i), true);
 			resourceList.add(resource);
-			resourceMap.put(resource, i); // 为了方便记录新加元素属于哪个分支模型
+			resourceMap.put(resource, i-1); // 为了方便记录新加元素属于哪个分支模型
 		}
 
 		// never use identifiers
 		IMatchEngine.Factory.Registry registry = MatchEngineFactoryRegistryImpl.createStandaloneInstance();
-		final MatchEngineFactoryImpl matchEngineFactory = new MatchEngineFactoryImpl(UseIdentifiers.ONLY);
+		final MatchEngineFactoryImpl matchEngineFactory = new MatchEngineFactoryImpl(UseIdentifiers.NEVER);
 		matchEngineFactory.setRanking(20);
 		registry.add(matchEngineFactory);
 
@@ -91,7 +97,7 @@ public class TestNWay {
 		// 还要记录预匹配信息
 		Map<EObject, List<EObject>> nodeMatchGroupMap = new HashMap<>();
 		Map<Integer, List<EObject>> addMap = new HashMap<>();
-		// 还要记录非新加的匹配组
+		// 还要记录非新加的匹配组，为了checkValid
 		Map<EObject, List<EObject>> nodesIndexMap = new HashMap<>();
 
 		for (int i = 1; i < size; i++) { // resourceList下标为0时，对应baseResource
@@ -256,7 +262,7 @@ public class TestNWay {
 					}
 
 					if (sum == 0) {
-						sum = 1; // sum不为0话，大于等于5；为了之后的除法
+						sum = 1; // sum不为0话，大于等于5；当sum为0时，让其为1，为了之后的除法
 					}
 					int cSize = clique.size();
 					if (clique.size() == 1) {
@@ -280,17 +286,18 @@ public class TestNWay {
 			// 按照value进行排序（降序），取第一个作为匹配组
 			Optional<Entry<List<EObject>, Double>> findFirst = map.entrySet().stream()
 					.sorted(Map.Entry.<List<EObject>, Double>comparingByValue().reversed()).findFirst();
-			// 暂时没将其它位置设置为null，对应分支位置设置为EObject
-			// 应该还是需要记录，因为出现新加-新加冲突时，需要精确定位？
 			List<EObject> matchGroup = findFirst.get().getKey();	
-			nodeMatchGroupList.add(matchGroup);						
 			maximalCliques.remove(matchGroup);
-
-			// 更新nodesIndexMap，need to improve?
+			
+			List<EObject> nodeMatchGroup = new ArrayList<>(Collections.nCopies(size-1, null));
 			matchGroup.forEach(e -> {
-				nodesIndexMap.put(e, matchGroup);
+				Integer index =  resourceMap.get(e.eResource());
+				nodeMatchGroup.set(index, e);	// 其它位置为null
+				nodeMatchGroupList.add(nodeMatchGroup);				
+				// 更新nodesIndexMap，need to improve?
+				nodesIndexMap.put(e, nodeMatchGroup);
 			});
-
+							
 			// tmp
 			System.out.println("**************挑选的团***************");
 			matchGroup.forEach(e -> {
@@ -330,7 +337,7 @@ public class TestNWay {
 		
 		
 		
-		
+				
 		// PENDING: 边的ID　-> 边的匹配组
 		Map<ValEdge, List<ValEdge>> valEdgeMatchGroupMap = new HashMap<>();
 		Map<ValEdgeMulti, List<ValEdgeMulti>> valEdgeMultiMatchGroupMap = new HashMap<>();		
@@ -342,27 +349,21 @@ public class TestNWay {
 			
 			System.out.println("\n\n***************************baseEObject***************************");
 			System.out.println("baseEObject: " + baseEObject);
-			List<EObject> t = nodesIndexMap.get(baseEObject);	// e.sourceIndex = t; 
-			System.out.println("t: " + t +"\n\n");
+			List<EObject> sourceIndex = nodesIndexMap.get(baseEObject);	// e.sourceIndex; 
 			
 			EClass eClass = baseEObject.eClass();
 			
 			for(EAttribute a : eClass.getEAllAttributes()) {
 				if(a.isMany() == false) {	// 单值属性
-					System.out.println("单值a: " + a);
-					Object eGet = baseEObject.eGet(a);	
-					System.out.println("eGet: " + eGet);
-					
-					ValEdge valEdge = new ValEdge(a, t, eGet);	// eGet maybe null
-					List<ValEdge> create = new ArrayList<>(size-1);
+					Object target = baseEObject.eGet(a);	
+					ValEdge valEdge = new ValEdge(a, sourceIndex, target);	// target maybe unset
+					List<ValEdge> create = new ArrayList<>(Collections.nCopies(size-1, null));
 					valEdgeMatchGroupMap.put(valEdge, create);
 					
 				} else {	// 多值属性
-					System.out.println("多值a: " + a);
-					List<Object> targets = (List<Object>) baseEObject.eGet(a);	// targets maybe null
-					
-					ValEdgeMulti valEdgeMulti = new ValEdgeMulti(a, t, targets);
-					List<ValEdgeMulti> create = new ArrayList<>(size-1);
+					List<Object> targets = (List<Object>) baseEObject.eGet(a);	// targets maybe unset
+					ValEdgeMulti valEdgeMulti = new ValEdgeMulti(a, sourceIndex, targets);
+					List<ValEdgeMulti> create = new ArrayList<>(Collections.nCopies(size-1, null));
 					valEdgeMultiMatchGroupMap.put(valEdgeMulti, create);
 					
 				}
@@ -371,55 +372,46 @@ public class TestNWay {
 			System.out.println("-----------------------------------------------------------------------");
 			for(EReference r : eClass.getEAllReferences()) {
 				if(r.isMany()==false) {	// 单值引用
-					System.out.println("单值r: " + r);
-					Object eGet = baseEObject.eGet(r);	
-					List<EObject> g = nodesIndexMap.get(eGet);	
-					System.out.println("g: " + g);
-					
-					RefEdge refEdge = new RefEdge(r, t, g);	// g maybe null
-					List<RefEdge> create = new ArrayList<>(size-1);
+					Object value = baseEObject.eGet(r);	
+					List<EObject> targetIndex = nodesIndexMap.get(value);	
+					RefEdge refEdge = new RefEdge(r, sourceIndex, targetIndex);	// targetIndex maybe unset
+					List<RefEdge> create = new ArrayList<>(Collections.nCopies(size-1, null));
 					refEdgeMatchGroupMap.put(refEdge, create);					
 					
 				} else {	// 多值引用
-					System.out.println("多值r: " + r);
-					List<EObject> targets = (List<EObject>) baseEObject.eGet(r);
-					
+					List<EObject> values = (List<EObject>) baseEObject.eGet(r);
 					List<List<EObject>> targetsIndex = new ArrayList<>();
-					targets.forEach(eObj -> {
+					values.forEach(eObj -> {
 						targetsIndex.add(nodesIndexMap.get(eObj));
 					});
 					
-					RefEdgeMulti refEdgeMulti = new RefEdgeMulti(r, t, targetsIndex);	// targetsIndex maybe null
-					List<RefEdgeMulti> create = new ArrayList<>(size-1);
+					RefEdgeMulti refEdgeMulti = new RefEdgeMulti(r, sourceIndex, targetsIndex);	// targetsIndex may unset
+					List<RefEdgeMulti> create = new ArrayList<>(Collections.nCopies(size-1, null));
 					refEdgeMultiMatchGroupMap.put(refEdgeMulti, create);
 					
 				}
 			}
 						
 			
-			for(EObject branchEObject : list) {
+			for(int i=0; i<size-1; i++) {
+				EObject branchEObject = list.get(i);
 				System.out.println("\n\n***************************遍历list***************************");
 				if(branchEObject != null) {
-					// 这里没必要nodesIndexMap.get(branchEObject)，因为在同一个matchGroup，肯定为t
+					// 因为在同一个matchGroup，sourceIndex相同
 					System.out.println("branchEObject: " + branchEObject);
 					
-					EClass eClass2 = branchEObject.eClass();
+					EClass eClass2 = branchEObject.eClass();	// PENDING: may not the same as eClass.
 					
 					for(EAttribute a2: eClass2.getEAllAttributes()) {
 						if(a2.isMany() == false) {	// 单值属性
-							System.out.println("单值a2: " + a2);
-							Object eGet2 = branchEObject.eGet(a2);
-							System.out.println("eGet2: " + eGet2);
-							
-							ValEdge valEdge2 = new ValEdge(a2, t, eGet2);
-							valEdgeMatchGroupMap.get(valEdge2).add(valEdge2);
-							
+							Object target2 = branchEObject.eGet(a2);							
+							ValEdge valEdge2 = new ValEdge(a2, sourceIndex, target2);
+							valEdgeMatchGroupMap.get(valEdge2).set(i, valEdge2);	// PENDING: what if get(valEdge2) is null?
+													
 						} else {	// 多值属性
-							System.out.println("多值a2: " + a2);
-							List<Object> targets2 = (List<Object>) baseEObject.eGet(a2);
-							
-							ValEdgeMulti valEdgeMulti2 = new ValEdgeMulti(a2, t, targets2);
-							valEdgeMultiMatchGroupMap.get(valEdgeMulti2).add(valEdgeMulti2);
+							List<Object> targets2 = (List<Object>) branchEObject.eGet(a2);						
+							ValEdgeMulti valEdgeMulti2 = new ValEdgeMulti(a2, sourceIndex, targets2);
+							valEdgeMultiMatchGroupMap.get(valEdgeMulti2).set(i, valEdgeMulti2);
 							
 						}
 					}
@@ -427,116 +419,362 @@ public class TestNWay {
 					System.out.println("-----------------------------------------------------------------------");
 					for(EReference r2: eClass2.getEAllReferences()) {
 						if(r2.isMany() == false) {	// 单值引用
-							System.out.println("单值r2: " + r2);
-							Object eGet2 = branchEObject.eGet(r2);
-							List<EObject> g2 = nodesIndexMap.get(eGet2);	
-							System.out.println("g2: " + g2);
+							Object value2 = branchEObject.eGet(r2);
+							List<EObject> targetIndex2 = nodesIndexMap.get(value2);	
 							
-							RefEdge refEdge2 = new RefEdge(r2, t, g2);
-							refEdgeMatchGroupMap.get(refEdge2).add(refEdge2);
+							RefEdge refEdge2 = new RefEdge(r2, sourceIndex, targetIndex2);
+							refEdgeMatchGroupMap.get(refEdge2).set(i, refEdge2);
 											
 						} else {	// 多值引用
-							System.out.println("多值r2: " + r2);
-							List<EObject> targets2 = (List<EObject>) baseEObject.eGet(r2);
+							List<EObject> values2 = (List<EObject>) branchEObject.eGet(r2);
 							
 							List<List<EObject>> targetsIndex2 = new ArrayList<>();
-							targets2.forEach(eObj2 -> {
+							values2.forEach(eObj2 -> {
 								targetsIndex2.add(nodesIndexMap.get(eObj2));
 							});
 							
-							RefEdgeMulti refEdgeMulti2 = new RefEdgeMulti(r2, t, targetsIndex2);	
-							refEdgeMultiMatchGroupMap.get(refEdgeMulti2).add(refEdgeMulti2);
-							
-							
+							RefEdgeMulti refEdgeMulti2 = new RefEdgeMulti(r2, sourceIndex, targetsIndex2);	
+							refEdgeMultiMatchGroupMap.get(refEdgeMulti2).set(i, refEdgeMulti2);
+														
 						}
 					}
+				} 
+			}
+		});
+		
+		// tmp
+//		System.out.println("\n\n\n=========================== valEdgeMatchGroupMap ==============================");
+//		valEdgeMatchGroupMap.forEach((key, value) -> {
+//			System.out.println("key.getType():        " + key.getType());
+//			System.out.println("key.getSourceIndex(): " + key.getSourceIndex());
+//			System.out.println("key.getTarget():      " + key.getTarget());
+//			
+//			value.forEach(v -> {
+//				if(v != null) {
+//					System.out.println("v.getType():        " + v.getType());
+//					System.out.println("v.getSourceIndex(): " + v.getSourceIndex());
+//					System.out.println("v.getTarget():      " + v.getTarget());
+//				} else {
+//					System.out.println(v);
+//				}
+//			});
+//			System.out.println("-----------------------------------------------------");
+//		});
+//		System.out.println("\n\n\n");
+//		
+//		
+//		System.out.println("\n\n\n=========================== valEdgeMultiMatchGroupMap ==============================");
+//		valEdgeMultiMatchGroupMap.forEach((key, value) -> {
+//			System.out.println("key.getType():         " + key.getType());
+//			System.out.println("key.getSourceIndex():  " + key.getSourceIndex());
+//			System.out.println("key.getTargets():      " + key.getTargets().size() + " "+ key.getTargets());
+//			
+//			value.forEach(v -> {
+//				if(v != null) {
+//					System.out.println("v.getType():         " + v.getType());
+//					System.out.println("v.getSourceIndex():  " + v.getSourceIndex());
+//					System.out.println("v.getTargets():      " + v.getTargets().size()+ " " + v.getTargets());
+//				} else {
+//					System.out.println(v);
+//				}
+//			});
+//			System.out.println("-----------------------------------------------------");
+//		});
+//		System.out.println("\n\n\n");
+//
+//		
+//		
+//		System.out.println("\n\n\n=========================== refEdgeMatchGroupMap ==============================");
+//		refEdgeMatchGroupMap.forEach((key, value) ->{
+//			System.out.println("key.getType():        " + key.getType());
+//			System.out.println("key.getSourceIndex(): " + key.getSourceIndex());
+//			System.out.println("key.getTargetIndex(): " + key.getTargetIndex());
+//			
+//			value.forEach(v -> {
+//				if(v != null) {
+//					System.out.println("v.getType():        " + v.getType());
+//					System.out.println("v.getSourceIndex(): " + v.getSourceIndex());
+//					System.out.println("v.getTargetIndex(): " + v.getTargetIndex());
+//				} else {
+//					System.out.println(v);
+//				}
+//			});
+//			System.out.println("-----------------------------------------------------");
+//		});
+//		System.out.println("\n\n\n");
+//		
+//		
+//		System.out.println("\n\n\n=========================== refEdgeMultiMatchGroupMap ==============================");
+//		refEdgeMultiMatchGroupMap.forEach((key, value) ->{
+//			System.out.println("key.getType():         " + key.getType());
+//			System.out.println("key.getSourceIndex():  " + key.getSourceIndex());
+//			System.out.println("key.getTargetsIndex(): " + key.getTargetsIndex().size() + " " + key.getTargetsIndex());
+//			
+//			value.forEach(v -> {
+//				if(v != null) {
+//					System.out.println("v.getType():         " + v.getType());
+//					System.out.println("v.getSourceIndex():  " + v.getSourceIndex());
+//					System.out.println("v.getTargetsIndex(): " + v.getTargetsIndex().size() + " " + v.getTargetsIndex());
+//				} else {
+//					System.out.println(v);
+//				}
+//			});
+//			System.out.println("-----------------------------------------------------");
+//		});
+//		System.out.println("\n\n\n");
+		
+		
+		
+		// 针对新加的点
+		System.out.println("\n\n\n***********************针对新加的点**************************");
+		Map<ValEdge, List<ValEdge>> valEdgeAddMatchGroupMap = new HashMap<>();
+		Map<ValEdgeMulti, List<ValEdgeMulti>> valEdgeMultiAddMatchGroupMap = new HashMap<>();
+		
+		Map<RefEdge, List<RefEdge>> refEdgeAddMatchGroupMap = new HashMap<>();
+		Map<RefEdgeMulti, List<RefEdgeMulti>> refEdgeMultiAddMatchGroupMap = new HashMap<>();
+		
+		for(List<EObject> list : nodeMatchGroupList) {
+			for(int i=0; i<size-1; i++) {
+				EObject addEObject = list.get(i);
+				if(addEObject != null) {
+					System.out.println("addEObject: " + addEObject);
+					
+					EClass eClass = addEObject.eClass();
+					List<EObject> sourceIndex = nodesIndexMap.get(addEObject);
+					
+					for(EAttribute a : eClass.getEAllAttributes()) {
+						if(a.isMany() == false) {	// 单值属性
+							Object target = addEObject.eGet(a);
+							ValEdge valEdge = new ValEdge(a, sourceIndex, target);
+							List<ValEdge> exist = valEdgeAddMatchGroupMap.get(valEdge);
+							if(exist == null) {
+								List<ValEdge> create = new ArrayList<>(Collections.nCopies(size-1, null));
+								create.set(i, valEdge);
+								valEdgeAddMatchGroupMap.put(valEdge, create);	// 还是把新加匹配组中的第一个看作base的地位，但之后合并不需要考虑
+							}else {
+								exist.set(i, valEdge);
+							}
+							
+						} else {	// 多值属性
+							List<Object> targets = (List<Object>) addEObject.eGet(a);
+							ValEdgeMulti valEdgeMulti = new ValEdgeMulti(a, sourceIndex, targets);
+							List<ValEdgeMulti> exist = valEdgeMultiAddMatchGroupMap.get(valEdgeMulti);
+							if(exist == null) {
+								List<ValEdgeMulti> create = new ArrayList<>(Collections.nCopies(size-1, null));
+								create.set(i, valEdgeMulti);
+								valEdgeMultiAddMatchGroupMap.put(valEdgeMulti, create);
+							} else {
+								exist.set(i, valEdgeMulti);
+							}
+						}
+					}
+					
+					for(EReference r : eClass.getEAllReferences()) {
+						if(r.isMany() == false) {	// 单值引用
+							Object value = addEObject.eGet(r);
+							List<EObject> targetIndex = nodesIndexMap.get(value);
+							RefEdge refEdge = new RefEdge(r, sourceIndex, targetIndex);
+							List<RefEdge> exist = refEdgeAddMatchGroupMap.get(refEdge);
+							if(exist == null) {
+								List<RefEdge> create = new ArrayList<>(Collections.nCopies(size-1, null));
+								create.set(i, refEdge);
+								refEdgeAddMatchGroupMap.put(refEdge, create);
+							} else {
+								exist.set(i, refEdge);
+							}
+							
+						} else {	// 多值引用
+							List<Object> values = (List<Object>) addEObject.eGet(r);
+							List<List<EObject>> targetsIndex = new ArrayList<>();
+							values.forEach(v -> {
+								targetsIndex.add(nodesIndexMap.get(v));
+							});
+							RefEdgeMulti refEdgeMulti = new RefEdgeMulti(r, sourceIndex, targetsIndex);
+							List<RefEdgeMulti> exist = refEdgeMultiAddMatchGroupMap.get(refEdgeMulti);
+							if(exist == null) {
+								List<RefEdgeMulti> create = new ArrayList<>(Collections.nCopies(size-1, null));
+								create.set(i, refEdgeMulti);
+								refEdgeMultiAddMatchGroupMap.put(refEdgeMulti, create);
+							} else {
+								exist.set(i, refEdgeMulti);
+							}
+						}
+					}
+				}			
+			}
+			System.out.println("============================");
+		}
+
+		// tmp
+//		System.out.println("*******************************valEdgeAddMatchGroupMap********************************");
+//		valEdgeAddMatchGroupMap.forEach((key, value) -> {
+//			System.out.println("key.getType():        " + key.getType());
+//			System.out.println("key.getSourceIndex(): " + key.getSourceIndex());
+//			System.out.println("key.getTarget():      " + key.getTarget());
+//			
+//			value.forEach(v -> {
+//				if(v != null) {
+//					System.out.println("v.getType():        " + v.getType());
+//					System.out.println("v.getSourceIndex(): " + v.getSourceIndex());
+//					System.out.println("v.getTarget():      " + v.getTarget());
+//				} else {
+//					System.out.println(v);
+//				}
+//			});
+//			System.out.println("-----------------------------------------------------");
+//		});
+//		System.out.println("\n\n\n");
+//		
+//		
+//		System.out.println("*******************************valEdgeAddMatchGroupMap********************************");
+//		valEdgeMultiAddMatchGroupMap.forEach((key, value) -> {
+//			System.out.println("key.getType():         " + key.getType());
+//			System.out.println("key.getSourceIndex():  " + key.getSourceIndex());
+//			System.out.println("key.getTargets():      " + key.getTargets().size() + " "+ key.getTargets());
+//			
+//			value.forEach(v -> {
+//				if(v != null) {
+//					System.out.println("v.getType():         " + v.getType());
+//					System.out.println("v.getSourceIndex():  " + v.getSourceIndex());
+//					System.out.println("v.getTargets():      " + v.getTargets().size()+ " " + v.getTargets());
+//				} else {
+//					System.out.println(v);
+//				}
+//			});
+//			System.out.println("-----------------------------------------------------");
+//		});
+//		System.out.println("\n\n\n");
+//		
+//		
+//		System.out.println("*******************************refEdgeAddMatchGroupMap********************************");
+//		refEdgeAddMatchGroupMap.forEach((key, value) ->{
+//			System.out.println("key.getType():        " + key.getType());
+//			System.out.println("key.getSourceIndex(): " + key.getSourceIndex());
+//			System.out.println("key.getTargetIndex(): " + key.getTargetIndex());
+//			
+//			value.forEach(v -> {
+//				if(v != null) {
+//					System.out.println("v.getType():        " + v.getType());
+//					System.out.println("v.getSourceIndex(): " + v.getSourceIndex());
+//					System.out.println("v.getTargetIndex(): " + v.getTargetIndex());
+//				} else {
+//					System.out.println(v);
+//				}
+//			});
+//			System.out.println("-----------------------------------------------------");
+//		});
+//		System.out.println("\n\n\n");
+//		
+//		
+//		System.out.println("*******************************refEdgeMultiAddMatchGroupMap********************************");
+//		refEdgeMultiAddMatchGroupMap.forEach((key, value) ->{
+//			System.out.println("key.getType():         " + key.getType());
+//			System.out.println("key.getSourceIndex():  " + key.getSourceIndex());
+//			System.out.println("key.getTargetsIndex(): " + key.getTargetsIndex().size() + " " + key.getTargetsIndex());
+//			
+//			value.forEach(v -> {
+//				if(v != null) {
+//					System.out.println("v.getType():         " + v.getType());
+//					System.out.println("v.getSourceIndex():  " + v.getSourceIndex());
+//					System.out.println("v.getTargetsIndex(): " + v.getTargetsIndex().size() + " " + v.getTargetsIndex());
+//				} else {
+//					System.out.println(v);
+//				}
+//			});
+//			System.out.println("-----------------------------------------------------");
+//		});
+//		System.out.println("\n\n\n");
+		
+
+		// 先计算点的合并结果
+		URI m1URI = URI.createFileURI("E:\\eclipse-dsl202012\\edu.ustb.sei.mde.college\\src\\edu\\ustb\\sei\\mde\\college\\xmi\\college_m1.xmi");
+		Resource m1Resource = new ResourceImpl(m1URI);
+		List<Conflict> conflicts = new ArrayList<>();
+		
+		nodeMatchGroupMap.forEach((baseEObject, list) -> {
+			// 先计算点的合并类型
+			EClass baseEClass = baseEObject.eClass();
+			EClass finalEClass = baseEClass;
+			// 记录可能产生的冲突
+			List<Integer> firstMayConflict = new ArrayList<>();
+			List<Integer> secondMayConfclit = new ArrayList<>();
+			for(int i=0; i<size-1; i++) {
+				EObject branchEObject = list.get(i);
+				if(branchEObject == null) {
+					firstMayConflict.add(i);
+				} else {
+					EClass branchEClass = branchEObject.eClass();
+					if(branchEClass != baseEClass) {
+						secondMayConfclit.add(i);
+					}
+					finalEClass = computeSubType(finalEClass, branchEClass);	
 				}
 			}
 			
-			
-			// tmp
-			System.out.println("\n\n\n=========================== valEdgeMatchGroupMap ==============================");
-			valEdgeMatchGroupMap.forEach((key, value) -> {
-				System.out.println("key.getType():        " + key.getType());
-				System.out.println("key.getSourceIndex(): " + key.getSourceIndex());
-				System.out.println("key.getTarget():      " + key.getTarget());
+			if(finalEClass == null) {
+				// 冲突：类型不兼容
 				
-				value.forEach(v -> {
-					System.out.println("v.getType():        " + v.getType());
-					System.out.println("v.getSourceIndex(): " + v.getSourceIndex());
-					System.out.println("v.getTarget():      " + v.getTarget());
-				});
-				System.out.println("-----------------------------------------------------");
-			});
-			System.out.println("\n\n\n");
-			
-			
-			System.out.println("\n\n\n=========================== valEdgeMultiMatchGroupMap ==============================");
-			valEdgeMultiMatchGroupMap.forEach((key, value) -> {
-				System.out.println("key.getType():         " + key.getType());
-				System.out.println("key.getSourceIndex():  " + key.getSourceIndex());
-				System.out.println("key.getTargets():      " + key.getTargets().size() + " "+ key.getTargets());
 				
-				value.forEach(v -> {
-					System.out.println("v.getType():         " + v.getType());
-					System.out.println("v.getSourceIndex():  " + v.getSourceIndex());
-					System.out.println("v.getTargets():      " + v.getTargets().size()+ " " + v.getTargets());
-				});
-				System.out.println("-----------------------------------------------------");
-			});
-			System.out.println("\n\n\n");
-
-			
-			
-			System.out.println("\n\n\n=========================== refEdgeMatchGroupMap ==============================");
-			refEdgeMatchGroupMap.forEach((key, value) ->{
-				System.out.println("key.getType():        " + key.getType());
-				System.out.println("key.getSourceIndex(): " + key.getSourceIndex());
-				System.out.println("key.getTargetIndex(): " + key.getTargetIndex());
+			} else if(firstMayConflict.size()> 0 && finalEClass!=baseEClass) {
+				// 冲突：删除节点-修改节点类型
+				Conflict conflict = new Conflict(firstMayConflict, ConflictKind.Delete, secondMayConfclit, ConflictKind.Update, "删除节点-修改节点类型");
+				System.out.println("*****" + conflict.toString());
+				conflicts.add(conflict);
 				
-				value.forEach(v -> {
-					System.out.println("v.getType():        " + v.getType());
-					System.out.println("v.getSourceIndex(): " + v.getSourceIndex());
-					System.out.println("v.getTargetIndex(): " + v.getTargetIndex());
-				});
-				System.out.println("-----------------------------------------------------");
-			});
-			System.out.println("\n\n\n");
-			
-			
-			System.out.println("\n\n\n=========================== refEdgeMultiMatchGroupMap ==============================");
-			refEdgeMultiMatchGroupMap.forEach((key, value) ->{
-				System.out.println("key.getType():         " + key.getType());
-				System.out.println("key.getSourceIndex():  " + key.getSourceIndex());
-				System.out.println("key.getTargetsIndex(): " + key.getTargetsIndex().size() + " " + key.getTargetsIndex());
-				
-				value.forEach(v -> {
-					System.out.println("v.getType():         " + v.getType());
-					System.out.println("v.getSourceIndex():  " + v.getSourceIndex());
-					System.out.println("v.getTargetsIndex(): " + v.getTargetsIndex().size() + " " + v.getTargetsIndex());
-				});
-				System.out.println("-----------------------------------------------------");
-			});
-			System.out.println("\n\n\n");
-			
-			
-			System.out.println("line 462");
-			
-			
+			} else if(firstMayConflict.size() == 0){
+				EObject finalEObject = EcoreUtil.create(finalEClass);
+				m1Resource.getContents().add(finalEObject);	// may not correct?
+				// 更新nodexIndexMap
+				List<EObject> sourceIndex = nodesIndexMap.get(baseEObject);
+				nodesIndexMap.put(finalEObject, sourceIndex);
+			}
+			// 其它应该就是删除
 		});
 		
+		EClass finalType = null;
+		
+		for(List<EObject> list : nodeMatchGroupList) {
+			for(int i=0; i<size-1; i++) {
+				EObject addEObject = list.get(i);
+				if(addEObject != null) {
+					EClass addEClass = addEObject.eClass();
+					if(finalType == null) {
+						finalType = addEClass;
+					} else {
+						
+					}
+				}
+				
+			}
+		}		
+		
+		// tmp
+		System.out.println("\n\n\n*****************baseEResource");
+		baseResource.getAllContents().forEachRemaining(e -> {
+			System.out.println(e);
+		});
+		
+		System.out.println("\n\n\n*****************m1Resource");
+		m1Resource.getAllContents().forEachRemaining(e -> {
+			System.out.println(e);
+		});
+		
+		System.out.println("line 733");
 		
 		
-		
-		
-		
-		
-//		matchGroupList.forEach(list -> {
-//			list.forEach(addEObject -> {
-//				
-//			});
-//		});
+	}
 
+	private static EClass computeSubType(EClass leftEClass, EClass rightEClass) {
+		if(leftEClass == rightEClass) {
+			return leftEClass;
+		}
+		if(leftEClass.isSuperTypeOf(rightEClass)) {
+			return rightEClass;
+		}
+		if(rightEClass.isSuperTypeOf(leftEClass)) {
+			return leftEClass;
+		}		
+		return null;
 	}
 
 	/**
