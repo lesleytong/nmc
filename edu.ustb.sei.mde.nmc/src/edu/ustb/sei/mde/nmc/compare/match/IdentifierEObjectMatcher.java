@@ -66,6 +66,8 @@ public class IdentifierEObjectMatcher implements IEObjectMatcher {
 	
 	private EObjectIndex index;
 	
+	private Map<EObject, String> eObjectsToID = Maps.newHashMap();
+	
 //	public Map<EObject, Side> eObjectsToSide = Maps.newHashMap();
 
 	/**
@@ -127,27 +129,30 @@ public class IdentifierEObjectMatcher implements IEObjectMatcher {
 
 			if (leftEObjects.hasNext()) {
 				EObject next = leftEObjects.next();
+				String identifier = idComputation.apply(next);
 				index.index(next, Side.LEFT);
-//				eObjectsToSide.put(next, Side.LEFT);
+				eObjectsToID.put(next, identifier);
 			}
 
 			if (rightEObjects.hasNext()) {
 				EObject next = rightEObjects.next();
+				String identifier = idComputation.apply(next);
 				index.index(next, Side.RIGHT);
-//				eObjectsToSide.put(next, Side.RIGHT);
+				eObjectsToID.put(next, identifier);
 			}
 
 			if (originEObjects.hasNext()) {
 				EObject next = originEObjects.next();
+				String identifier = idComputation.apply(next);
 				index.index(next, Side.ORIGIN);
-//				eObjectsToSide.put(next, Side.ORIGIN);
+				eObjectsToID.put(next, identifier);
 			}
 
 		}
 		
 		// TODO Change API to pass the monitor to matchPerId()
 		final Set<Match> matches = matchPerId(leftEObjects, rightEObjects, originEObjects, leftEObjectsNoID,
-				rightEObjectsNoID, originEObjectsNoID, distanceMap);
+				rightEObjectsNoID, originEObjectsNoID,eObjectsToID, distanceMap);
 
 		Iterables.addAll(comparison.getMatches(), matches);
 
@@ -214,11 +219,11 @@ public class IdentifierEObjectMatcher implements IEObjectMatcher {
 	protected Set<Match> matchPerId(Iterator<? extends EObject> leftEObjects,
 			Iterator<? extends EObject> rightEObjects, Iterator<? extends EObject> originEObjects,
 			final List<EObject> leftEObjectsNoID, final List<EObject> rightEObjectsNoID,
-			final List<EObject> originEObjectsNoID, MultiKeyMap<EObject, Double> distanceMap) {
+			final List<EObject> originEObjectsNoID, Map<EObject, String> eObjectsToID, MultiKeyMap<EObject, Double> distanceMap) {
 
 		MatchComputationByID computation = new MatchComputationByID(leftEObjects, rightEObjects, originEObjects,
 				leftEObjectsNoID, rightEObjectsNoID, originEObjectsNoID, idComputation, diagnostic, index);
-		computation.compute(distanceMap);
+		computation.compute(eObjectsToID, distanceMap);
 		return computation.getMatches();
 	}
 

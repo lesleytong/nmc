@@ -71,6 +71,7 @@ public class MatchComputationByID implements IDFunction{
 	private SwitchMap<String, Match> idProxyMap;
 	
 	
+	
 	/**
 	 * This will be used to determine what represents the "identifier" of an EObject. By default, we will use
 	 * the following logic, in order (i.e. if condition 1 is fulfilled, we will not try conditions 2 and 3) :
@@ -135,22 +136,22 @@ public class MatchComputationByID implements IDFunction{
 	/**
 	 * Computes matches.
 	 */
-	public void compute(MultiKeyMap<EObject, Double> distanceMap) {
-		computeLeftSide(distanceMap);
-		computeRightSide(distanceMap);
-		computeOriginSide(distanceMap);
+	public void compute(Map<EObject, String> eObjectsToID, MultiKeyMap<EObject, Double> distanceMap) {
+		computeLeftSide(eObjectsToID, distanceMap);
+		computeRightSide(eObjectsToID, distanceMap);
+		computeOriginSide(eObjectsToID, distanceMap);
 		//reorganizeMatches();
 	}
 
 	/**
 	 * Computes matches for left side.
 	 */
-	private void computeLeftSide(MultiKeyMap<EObject, Double> distanceMap) {
+	private void computeLeftSide(Map<EObject, String> eObjectsToID, MultiKeyMap<EObject, Double> distanceMap) {
 		Iterable<EObject> todo = index.getValuesStillThere(Side.LEFT);
 		Iterator<EObject> todoList = todo.iterator();
 		while (todoList.hasNext()) {
 			EObject left = todoList.next();
-			String identifier = idComputation.apply(left);
+			String identifier = eObjectsToID.get(left);
 			if (identifier != null) {
 				final Match match = CompareFactory.eINSTANCE.createMatch();
 				match.setLeft(left);
@@ -167,7 +168,7 @@ public class MatchComputationByID implements IDFunction{
 				index.remove(left, Side.LEFT);
 				final boolean isAlreadyContained = idProxyMap.put(left.eIsProxy(), identifier, match);
 				if (isAlreadyContained) {
-					reportDuplicateID(Side.LEFT, left);
+					reportDuplicateID(Side.LEFT, left, eObjectsToID);
 				}
 				leftEObjectsToMatch.put(left, match);
 			} else {
@@ -179,18 +180,18 @@ public class MatchComputationByID implements IDFunction{
 	/**
 	 * Computes matches for right side.
 	 */
-	private void computeRightSide(MultiKeyMap<EObject, Double> distanceMap) {
+	private void computeRightSide(Map<EObject, String> eObjectsToID, MultiKeyMap<EObject, Double> distanceMap) {
 		Iterable<EObject> todo = index.getValuesStillThere(Side.RIGHT);
 		Iterator<EObject> todoList = todo.iterator();
 		while (todoList.hasNext()) {
 			final EObject right = todoList.next();
 			// Do we have an existing match?
-			final String identifier = idComputation.apply(right);
+			String identifier = eObjectsToID.get(right);
 			if (identifier != null) {
 				Match match = idProxyMap.get(right.eIsProxy(), identifier);
 				if (match != null) {
 					if (match.getRight() != null) {
-						reportDuplicateID(Side.RIGHT, right);
+						reportDuplicateID(Side.RIGHT, right, eObjectsToID);
 					}
 					match.setRight(right);
 					
@@ -229,18 +230,18 @@ public class MatchComputationByID implements IDFunction{
 	/**
 	 * Computes matches for origin side.
 	 */
-	private void computeOriginSide(MultiKeyMap<EObject, Double> distanceMap) {
+	private void computeOriginSide(Map<EObject, String> eObjectsToID, MultiKeyMap<EObject, Double> distanceMap) {
 		Iterable<EObject> todo = index.getValuesStillThere(Side.ORIGIN);
 		Iterator<EObject> todoList = todo.iterator();
 		while (todoList.hasNext()) {
 			final EObject origin = todoList.next();
 			// Do we have an existing match?
-			final String identifier = idComputation.apply(origin);
+			String identifier = eObjectsToID.get(origin);
 			if (identifier != null) {
 				Match match = idProxyMap.get(origin.eIsProxy(), identifier);
 				if (match != null) {
 					if (match.getOrigin() != null) {
-						reportDuplicateID(Side.ORIGIN, origin);
+						reportDuplicateID(Side.ORIGIN, origin, eObjectsToID);
 					}
 					match.setOrigin(origin);
 					
@@ -337,8 +338,8 @@ public class MatchComputationByID implements IDFunction{
 	 * @param eObject
 	 *            the element with the duplicate ID
 	 */
-	private void reportDuplicateID(Side side, EObject eObject) {
-		final String duplicateID = idComputation.apply(eObject);
+	private void reportDuplicateID(Side side, EObject eObject, Map<EObject, String> eObjectsToID) {
+		final String duplicateID = eObjectsToID.get(eObject);
 		final String sideName = side.name().toLowerCase();
 		final String uriString = getUriString(eObject);
 		final String message;

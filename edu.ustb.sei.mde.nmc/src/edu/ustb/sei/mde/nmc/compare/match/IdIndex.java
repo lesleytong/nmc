@@ -29,6 +29,7 @@ public class IdIndex implements EObjectIndex {
 	 * the origin objects still present in the index.
 	 */
 	private Set<EObject> origins;
+	
 
 
 	//twb
@@ -95,6 +96,10 @@ public class IdIndex implements EObjectIndex {
 			break;
 	}
 
+	}
+	
+	public void setIdentifier(EObject eObj, String id) {
+		
 	}
 
 	@Override
