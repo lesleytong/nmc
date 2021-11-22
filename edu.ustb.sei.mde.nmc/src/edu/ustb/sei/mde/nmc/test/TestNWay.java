@@ -50,13 +50,13 @@ public class TestNWay {
 
 		resourceSet.getPackageRegistry().put(EcorePackage.eNS_URI, EcorePackage.eINSTANCE);
 
-		URI baseURI = URI.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\bank.ecore");
+		URI baseURI = URI.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\bank.ecore");
 		URI branch1URI = URI
-				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\bank1.ecore");
+				.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\bank1.ecore");
 		URI branch2URI = URI
-				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\bank2.ecore");
+				.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\bank2.ecore");
 		URI branch3URI = URI
-				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\bank3.ecore");
+				.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\bank3.ecore");
 
 		List<URI> uriList = new ArrayList<>();
 		uriList.add(baseURI);

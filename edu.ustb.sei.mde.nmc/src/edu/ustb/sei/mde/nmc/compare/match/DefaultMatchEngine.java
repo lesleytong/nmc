@@ -357,7 +357,7 @@ public class DefaultMatchEngine implements IMatchEngine {
 		final EditionDistance editionDistance = new EditionDistance(weightProviderRegistry,
 				equalityHelperExtensionProviderRegistry);
 		final CachingDistance cachedDistance = new CachingDistance(editionDistance);
-		// lyt: Ö¸¶¨Index
+		
 		ByTypeIndex byTypeIndex = new ByTypeIndex();	
 		
 		switch (useIDs) {
@@ -368,7 +368,7 @@ public class DefaultMatchEngine implements IMatchEngine {
 				matcher = new IdentifierEObjectMatcher();
 				break;
 			case HASH:
-				matcher = new HashEObjectMatcher();
+				matcher = new HashEObjectMatcher(cachedDistance, byTypeIndex);
 				break;
 			case WHEN_AVAILABLE:
 				// fall through to default
