@@ -50,19 +50,17 @@ public class TestNWay {
 
 		resourceSet.getPackageRegistry().put(EcorePackage.eNS_URI, EcorePackage.eINSTANCE);
 
-		URI baseURI = URI.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\bank.ecore");
+		URI baseURI = URI.createFileURI("D:\\eclipse-dsl-workspace\\nmc-main2\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\person.ecore");
 		URI branch1URI = URI
-				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\bank1.ecore");
+				.createFileURI("D:\\eclipse-dsl-workspace\\nmc-main2\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\person1.ecore");
 		URI branch2URI = URI
-				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\bank2.ecore");
-		URI branch3URI = URI
-				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\ecore\\bank3.ecore");
+				.createFileURI("D:\\eclipse-dsl-workspace\\nmc-main2\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\person2.ecore");
 
 		List<URI> uriList = new ArrayList<>();
 		uriList.add(baseURI);
 		uriList.add(branch1URI);
 		uriList.add(branch2URI);
-		uriList.add(branch3URI);
+		//uriList.add(branch3URI);
 
 		int size = uriList.size();
 		List<Resource> resourceList = new ArrayList<>(size);
@@ -75,7 +73,7 @@ public class TestNWay {
 
 		// never use identifiers
 		IMatchEngine.Factory.Registry registry = MatchEngineFactoryRegistryImpl.createStandaloneInstance();
-		final MatchEngineFactoryImpl matchEngineFactory = new MatchEngineFactoryImpl(UseIdentifiers.NEVER);
+		final MatchEngineFactoryImpl matchEngineFactory = new MatchEngineFactoryImpl(UseIdentifiers.ONLY);
 		matchEngineFactory.setRanking(20);
 		registry.add(matchEngineFactory);
 

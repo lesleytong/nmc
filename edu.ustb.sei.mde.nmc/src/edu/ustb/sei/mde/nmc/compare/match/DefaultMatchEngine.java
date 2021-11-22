@@ -365,7 +365,7 @@ public class DefaultMatchEngine implements IMatchEngine {
 				matcher = new ProximityEObjectMatcher(cachedDistance, byTypeIndex);
 				break;
 			case ONLY:
-				matcher = new IdentifierEObjectMatcher();
+				matcher = new IdentifierEObjectMatcher(byTypeIndex);
 				break;
 			case HASH:
 				matcher = new HashEObjectMatcher();
