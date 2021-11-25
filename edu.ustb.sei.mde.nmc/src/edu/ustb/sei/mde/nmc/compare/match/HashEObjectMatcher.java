@@ -23,15 +23,14 @@ import edu.ustb.sei.mde.nmc.compare.EObjectIndex;
 import edu.ustb.sei.mde.nmc.compare.IEObjectMatcher;
 import edu.ustb.sei.mde.nmc.compare.Match;
 import edu.ustb.sei.mde.nmc.compare.EObjectIndex.Side;
+import edu.ustb.sei.mde.nmc.compare.HashFunction;
 import edu.ustb.sei.mde.nmc.compare.match.ProximityEObjectMatcher.DistanceFunction;
 
 public class HashEObjectMatcher implements IEObjectMatcher	{
 	
 	private EObjectIndex index;
 	
-	
-	private DistanceFunction meter;
-
+	private HashFunction meter;
 	
 	private Map<EObject, Side> eObjectsToSide = Maps.newHashMap();
 	@Override
@@ -134,7 +133,6 @@ public class HashEObjectMatcher implements IEObjectMatcher	{
 		assert bSide != cSide;
 		assert cSide != aSide;
 		
-		// lyt
 		Map<Side, EObject> closests = findClosests(comparison, a, aSide);
 		
 		if (closests != null) {
@@ -272,8 +270,7 @@ public class HashEObjectMatcher implements IEObjectMatcher	{
 	
 	
 	// Constructor
-	public HashEObjectMatcher(DistanceFunction meter, EObjectIndex index) {
-		this.meter = meter;
+	public HashEObjectMatcher(EObjectIndex index) {
 		this.index = index;
 	}
 	

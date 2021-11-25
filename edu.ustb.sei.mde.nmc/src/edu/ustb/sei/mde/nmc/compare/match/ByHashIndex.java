@@ -1,5 +1,8 @@
 package edu.ustb.sei.mde.nmc.compare.match;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -7,77 +10,149 @@ import java.util.Set;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import edu.ustb.sei.mde.nmc.compare.EObjectIndex;
+import edu.ustb.sei.mde.nmc.compare.EObjectIndex.Side;
 
-
+/*HashIndex
+ *1.compute EObeject HashValue
+ *2.return the nearest top-k Value
+*/
 public class ByHashIndex implements EObjectIndex{
+	/**
+	 * All the type specific indexes, created on demand.
+	 */
 	private Map<String, EObjectIndex> allIndexes;
+	/**
+	 * the left objects still present in the index.
+	 */
+	private Set<EObject> lefts;
 
-	// tlt
-	public ByHashIndex() {
-		this.allIndexes = Maps.newHashMap();
+	/**
+	 * the right objects still present in the index.
+	 */
+	private Set<EObject> rights;
+
+	/**
+	 * the origin objects still present in the index.
+	 */
+	private Set<EObject> origins;
+	
+	/*
+	 * HashKey Generate
+	 * get all references and attribute
+	 */
+	
+	//public for testing , later change this
+	public int HashKey(EObject obj) {
+		Map<String, Integer> wordCount = new HashMap<String, Integer>();
+		obj.eAllContents().forEachRemaining(e ->{
+			EClass eClass = e.eClass();
+			System.out.println(eClass.toString());
+			eClass.getEAllAttributes().forEach(a ->{
+				Object eGet = e.eGet(a);
+				if(eGet != null)
+					System.out.println("a:" +a.getName() +" "+ eGet.toString());
+				
+			});
+			eClass.getEAllReferences().forEach(r ->{
+				Object eGet = e.eGet(r);
+				if(eGet != null && eGet.toString() != "[]")
+					System.out.println("r:" +r.getName()+ " " +eGet);
+			});
+			System.out.println("---------------------------------------------------" );
+		});
+		
+		return 0;
 	}
 	
-	@Override
-	public Iterable<EObject> getValuesStillThere(Side side) {
-		List<Iterable<EObject>> allLists = Lists.newArrayList();
-		for (EObjectIndex typeSpecificIndex : allIndexes.values()) {
-			allLists.add(typeSpecificIndex.getValuesStillThere(side));
+	
+	
+	public ByHashIndex() {
+		this.lefts = Sets.newLinkedHashSet();
+		this.rights = Sets.newLinkedHashSet();
+		this.origins = Sets.newLinkedHashSet();
+		this.allIndexes = Maps.newHashMap();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	public void remove(EObject obj, Side side) {
+		switch (side) {
+			case RIGHT:
+				rights.remove(obj);
+				break;
+			case LEFT:
+				lefts.remove(obj);
+				break;
+			case ORIGIN:
+				origins.remove(obj);
+				break;
+			default:
+				break;
 		}
-		return Iterables.concat(allLists);
 	}
 
-	@Override
-	public void remove(EObject eObj, Side side) {
-		EObjectIndex typeSpecificIndex = getOrCreate(eObj);
-		typeSpecificIndex.remove(eObj, side);
-		
-	}
+	/**
+	 * {@inheritDoc}
+	 */
+	public void index(EObject eObject, Side side) {
+		switch (side) {
+			case RIGHT:
+				rights.add(eObject);
+				break;
+			case LEFT:
+				lefts.add(eObject);
+				break;
+			case ORIGIN:
+				origins.add(eObject);
+				break;
 
-	//getOrCreate·½·¨
-	private EObjectIndex getOrCreate(EObject obj) {
-		String key = eClassKey(obj);
-		EObjectIndex found = allIndexes.get(key);
-		if (found == null) {
-			found = new ProximityIndex();	// change this
-			allIndexes.put(key, found);
+			default:
+				break;
 		}
-		return found;
 	}
-
-	private String eClassKey(EObject obj) {
-		EClass clazz = obj.eClass();
-		if (clazz.getEPackage() != null) {
-			return clazz.getEPackage().getNsURI() + ":" + clazz.getName(); //$NON-NLS-1$
+	
+	/**
+	 * {@inheritDoc}
+	 */
+	public Iterable<EObject> getValuesStillThere(final Side side) {
+		Collection<EObject> result = Collections.emptyList();
+		switch (side) {
+			case RIGHT:
+				result = ImmutableList.copyOf(rights);
+				break;
+			case LEFT:
+				result = ImmutableList.copyOf(lefts);
+				break;
+			case ORIGIN:
+				result = ImmutableList.copyOf(origins);
+				break;
+			default:
+				break;
 		}
-		return clazz.getName();
-	}
-
-	@Override
-	public void index(EObject eObjs, Side side) {
-		EObjectIndex typeSpecificIndex = getOrCreate(eObjs);
-		typeSpecificIndex.index(eObjs, side);
+		return result;
 	}
 
 	@Override
 	public Set<EObject> getLefts(EObject obj) {
-		EObjectIndex typeSpecificIndex = getOrCreate(obj);
-		return typeSpecificIndex.getLefts(obj);
+		return lefts;
 	}
 
 	@Override
 	public Set<EObject> getRights(EObject obj) {
-		EObjectIndex typeSpecificIndex = getOrCreate(obj);
-		return typeSpecificIndex.getRights(obj);
+		return rights;
 	}
 
 	@Override
 	public Set<EObject> getOrigins(EObject obj) {
-		EObjectIndex typeSpecificIndex =getOrCreate(obj);
-		return typeSpecificIndex.getOrigins(obj);
+		return origins;
 	}
+
 }

@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import edu.ustb.sei.mde.nmc.compare.CompareFactory;
 import edu.ustb.sei.mde.nmc.compare.Comparison;
 import edu.ustb.sei.mde.nmc.compare.EqualityHelperExtensionProvider;
+import edu.ustb.sei.mde.nmc.compare.HashFunction;
 import edu.ustb.sei.mde.nmc.compare.IComparisonScope;
 import edu.ustb.sei.mde.nmc.compare.IEObjectMatcher;
 import edu.ustb.sei.mde.nmc.compare.IMatchEngine;
@@ -368,7 +369,8 @@ public class DefaultMatchEngine implements IMatchEngine {
 				matcher = new IdentifierEObjectMatcher();
 				break;
 			case HASH:
-				matcher = new HashEObjectMatcher(cachedDistance, byTypeIndex);
+				ByHashIndex byHashIndex = new ByHashIndex();
+				matcher = new HashEObjectMatcher(byHashIndex);
 				break;
 			case WHEN_AVAILABLE:
 				// fall through to default
