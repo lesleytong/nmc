@@ -227,7 +227,7 @@ public class HashEObjectMatcher implements IEObjectMatcher	{
 		Iterator<EObject> it = storageToSearchFor.iterator();
 		while (best.distance != 0 && it.hasNext()) {
 			EObject potentialClosest = it.next();
-			double dist = meter.distance(inProgress, eObj, potentialClosest);
+			double dist = meter.distance(eObj, potentialClosest);
 			if (dist < best.distance) {
 				if (shouldDoubleCheck) {
 					// We need to double check the currentlyDigging has the same object as the closest !
@@ -259,7 +259,7 @@ public class HashEObjectMatcher implements IEObjectMatcher	{
 		while (it.hasNext() && !best.some()) {
 			EObject fastCheck = it.next();
 			if(readyForThisTest(inProgress, fastCheck)) {
-				if (meter.areIdentic(inProgress, eObj, fastCheck)) {
+				if (meter.areIdentic(eObj, fastCheck)) {
 					best.eObject = fastCheck;
 					best.distance = 0;
 				}

@@ -1,15 +1,27 @@
 package edu.ustb.sei.mde.nmc.compare.match;
 
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.eclipse.emf.ecore.EObject;
 
 import edu.ustb.sei.mde.nmc.compare.Comparison;
 import edu.ustb.sei.mde.nmc.compare.HashFunction;
-import edu.ustb.sei.mde.nmc.compare.match.EditionDistance.CountingDiffEngine;
 
 public class MatchComputationByHash implements HashFunction {
 
+	/**
+	 * 
+	 * @param Map<String, Integer> wordCount
+	 * recording words frequency by mapping
+	 */
+	public Map<String, Integer> wordCount;
+	/**
+	 * @param hashbits 
+	 * define hash length
+	 */
+	private int hashbits = 64;
 	public int hammingDistance(String s1, String s2) {
 		BigInteger one = this.simHash(s1);
 		BigInteger two = this.simHash(s2);
@@ -64,16 +76,10 @@ public class MatchComputationByHash implements HashFunction {
 		return denuminator / Math.sqrt(sqdoc1 * sqdoc2);
 }
 	
-	private BigInteger simHash(String tokens) {
-
-		tokens = cleanResume(tokens); // cleanResume 删除一些特殊字符
+	public BigInteger simHash(Map<String, Integer> wordCount) {
 
 		int[] v = new int[this.hashbits];
 
-		Result ansjList = wordAnalyzer(tokens);
-		// System.out.println(ansjList);
-		
-		// 标识该文档中每个词出现的次数
 		Map<String, Integer> wordCount = new HashMap<String, Integer>();
 		
 		Integer count = 0;

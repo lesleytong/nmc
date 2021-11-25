@@ -1,11 +1,14 @@
 package edu.ustb.sei.mde.nmc.compare.match;
 
+import java.math.BigInteger;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
@@ -18,7 +21,6 @@ import com.google.common.collect.Sets;
 
 import edu.ustb.sei.mde.nmc.compare.EObjectIndex;
 import edu.ustb.sei.mde.nmc.compare.EObjectIndex.Side;
-
 /*HashIndex
  *1.compute EObeject HashValue
  *2.return the nearest top-k Value
@@ -27,7 +29,7 @@ public class ByHashIndex implements EObjectIndex{
 	/**
 	 * All the type specific indexes, created on demand.
 	 */
-	private Map<String, EObjectIndex> allIndexes;
+	private Map<EObject, BigInteger> allIndexes;
 	/**
 	 * the left objects still present in the index.
 	 */
@@ -43,32 +45,48 @@ public class ByHashIndex implements EObjectIndex{
 	 */
 	private Set<EObject> origins;
 	
+	private MatchComputationByHash matchComputationByHash;
 	/*
 	 * HashKey Generate
 	 * get all references and attribute
 	 */
 	
 	//public for testing , later change this
-	public int HashKey(EObject obj) {
-		Map<String, Integer> wordCount = new HashMap<String, Integer>();
+	public void HashKey(EObject obj) {
+		
 		obj.eAllContents().forEachRemaining(e ->{
+			Map<String, Integer> wordCount = new HashMap<String, Integer>();
 			EClass eClass = e.eClass();
 			System.out.println(eClass.toString());
 			eClass.getEAllAttributes().forEach(a ->{
 				Object eGet = e.eGet(a);
-				if(eGet != null)
-					System.out.println("a:" +a.getName() +" "+ eGet.toString());
-				
+				if(eGet != null && eGet.toString()!="null" && eGet.toString()!="false") {
+					//System.out.println("a:" + " " + a.getName() + " " + eGet);
+					String str = a.getName()+eGet;
+					wordCount.put(str,wordCount.getOrDefault(str,0)+1);
+					System.out.println(str);
+				}
 			});
 			eClass.getEAllReferences().forEach(r ->{
 				Object eGet = e.eGet(r);
-				if(eGet != null && eGet.toString() != "[]")
-					System.out.println("r:" +r.getName()+ " " +eGet);
+				if(eGet != null && eGet.toString().compareTo("[]") != 0 ) {
+					Pattern pattern = Pattern.compile("[A-Za-z]*\\)");
+					Matcher matcher = pattern.matcher(eGet.toString());
+					if(matcher.find()) {
+						String  str = matcher.group(0).toString();
+						//System.out.println("r:" + r.getName() + "  " + str.substring(0,str.length()-1));
+						str = r.getName() + str.substring(0,str.length()-1);
+						wordCount.put(str,wordCount.getOrDefault(str,0)+1);
+						System.out.println(str);
+					}
+				}
 			});
 			System.out.println("---------------------------------------------------" );
+
+			BigInteger hashCode = matchComputationByHash.simHash(wordCount);
+			allIndexes.put(e, hashCode);
 		});
 		
-		return 0;
 	}
 	
 	
@@ -78,6 +96,7 @@ public class ByHashIndex implements EObjectIndex{
 		this.rights = Sets.newLinkedHashSet();
 		this.origins = Sets.newLinkedHashSet();
 		this.allIndexes = Maps.newHashMap();
+		this.matchComputationByHash = new MatchComputationByHash();
 	}
 
 	/**
