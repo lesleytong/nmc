@@ -28,7 +28,7 @@ import edu.ustb.sei.mde.nmc.compare.match.ProximityEObjectMatcher.DistanceFuncti
 
 public class HashEObjectMatcher implements IEObjectMatcher	{
 	
-	private EObjectIndex index;
+	private ByHashIndex index;
 	
 	private HashFunction meter;
 	
@@ -227,7 +227,7 @@ public class HashEObjectMatcher implements IEObjectMatcher	{
 		Iterator<EObject> it = storageToSearchFor.iterator();
 		while (best.distance != 0 && it.hasNext()) {
 			EObject potentialClosest = it.next();
-			double dist = meter.distance(eObj, potentialClosest);
+			double dist = meter.distance(index.getObjHashKey(eObj), index.getObjHashKey(potentialClosest));
 			if (dist < best.distance) {
 				if (shouldDoubleCheck) {
 					// We need to double check the currentlyDigging has the same object as the closest !
@@ -259,7 +259,7 @@ public class HashEObjectMatcher implements IEObjectMatcher	{
 		while (it.hasNext() && !best.some()) {
 			EObject fastCheck = it.next();
 			if(readyForThisTest(inProgress, fastCheck)) {
-				if (meter.areIdentic(eObj, fastCheck)) {
+				if (meter.areIdentic(index.getObjHashKey(eObj),index.getObjHashKey(fastCheck))) {
 					best.eObject = fastCheck;
 					best.distance = 0;
 				}
@@ -270,8 +270,9 @@ public class HashEObjectMatcher implements IEObjectMatcher	{
 	
 	
 	// Constructor
-	public HashEObjectMatcher(EObjectIndex index) {
+	public HashEObjectMatcher(ByHashIndex index) {
 		this.index = index;
+		this.meter = new MatchComputationByHash();
 	}
 	
 	private static class Candidate {

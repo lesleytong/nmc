@@ -1,12 +1,14 @@
 package edu.ustb.sei.mde.nmc.compare;
 
+import java.math.BigInteger;
+
 import org.eclipse.emf.ecore.EObject;
 
 public interface HashFunction {
 
-	boolean areIdentic(EObject eObj, EObject fastCheck);
+	boolean areIdentic(BigInteger one, BigInteger two);
 	//to be implement in MatchComputationByHash
 
-	double distance(EObject eObj, EObject potentialClosest);
+	double distance(BigInteger one, BigInteger two);
 	//to be implement in MatchComputationByHash
 }

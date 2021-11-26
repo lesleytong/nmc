@@ -27,9 +27,9 @@ import edu.ustb.sei.mde.nmc.compare.EObjectIndex.Side;
 */
 public class ByHashIndex implements EObjectIndex{
 	/**
-	 * All the type specific indexes, created on demand.
+	 * hashIndexex recording EObject HashValue
 	 */
-	private Map<EObject, BigInteger> allIndexes;
+	private Map<EObject, BigInteger> hashIndexes;
 	/**
 	 * the left objects still present in the index.
 	 */
@@ -50,7 +50,6 @@ public class ByHashIndex implements EObjectIndex{
 	 * HashKey Generate
 	 * get all references and attribute
 	 */
-	
 	//public for testing , later change this
 	public void HashKey(EObject obj) {
 		
@@ -81,21 +80,40 @@ public class ByHashIndex implements EObjectIndex{
 					}
 				}
 			});
-			System.out.println("---------------------------------------------------" );
-
 			BigInteger hashCode = matchComputationByHash.simHash(wordCount);
-			allIndexes.put(e, hashCode);
+			hashIndexes.put(e, hashCode);
+			System.out.println(hashCode.toString());
+			System.out.println("---------------------------------------------------" );
 		});
 		
 	}
 	
+	/**
+	 * should distance written here?
+	public int hammingDistance(EObject obj1, EObject obj2) {
+		BigInteger one = hashIndexex.get(obj1);
+		BigInteger two = hashIndexex.get(obj2);
+		BigInteger m = new BigInteger("1").shiftLeft(64).subtract(new BigInteger("1"));
+		BigInteger x = one.xor(two).and(m);
+		int dis = 0;
+		while (x.signum() != 0) {
+			dis += 1;
+			x = x.and(x.subtract(new BigInteger("1")));
+		}
+		return dis;
+	}
+	*/
 	
+	public BigInteger getObjHashKey(EObject obj) {
+		HashKey(obj);
+		return hashIndexes.get(obj);
+	}
 	
 	public ByHashIndex() {
 		this.lefts = Sets.newLinkedHashSet();
 		this.rights = Sets.newLinkedHashSet();
 		this.origins = Sets.newLinkedHashSet();
-		this.allIndexes = Maps.newHashMap();
+		this.hashIndexes = Maps.newHashMap();
 		this.matchComputationByHash = new MatchComputationByHash();
 	}
 
