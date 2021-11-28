@@ -93,6 +93,46 @@ public class ReadResourceCompare {
 		
 		
 		
+		System.out.println("--------------------------------------------------");
+		
+		
+		Resource branch1Resource = resourceList.get(1);
+		branch1Resource.getAllContents().forEachRemaining(e -> {
+			System.out.println("\n\n\ne: " + e + "\n");
+			
+			EClass eClass = e.eClass();
+			
+			eClass.getEAllAttributes().forEach(a -> {
+				System.out.println("a: " + a);
+				if(a.isMany() == false) {
+					System.out.println("单值：" + e.eGet(a));
+				} else {
+					List<Object> list =  (List<Object>) e.eGet(a);
+					System.out.println("多值：");
+					list.forEach(l -> {
+						System.out.println(l);
+					});
+				}
+			});
+			
+			System.out.println("-----------------------------");
+			eClass.getEAllReferences().forEach(r -> {
+				System.out.println("r: " + r);
+				
+				if(r.isMany() == false) {
+					System.out.println("单值：" + e.eGet(r));
+				} else {
+					List<EObject> list = (List<EObject>)e.eGet(r);
+					System.out.println("多值：");
+					list.forEach(l -> {
+						System.out.println(l);
+					});
+				}
+			});
+			
+			System.out.println("line 133");
+			
+		});
 		
 		
 		
@@ -103,7 +143,7 @@ public class ReadResourceCompare {
 		registry.add(matchEngineFactory);
 					
 		Resource originResource = baseResource;
-		Resource leftResource = resourceList.get(1);
+		Resource leftResource = branch1Resource;
 		Resource rightResource = resourceList.get(2);
 		IComparisonScope scope = null;
 

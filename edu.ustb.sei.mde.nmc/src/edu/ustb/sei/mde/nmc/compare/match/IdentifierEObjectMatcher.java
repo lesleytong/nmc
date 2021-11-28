@@ -122,8 +122,8 @@ public class IdentifierEObjectMatcher implements IEObjectMatcher {
 		final List<EObject> rightEObjectsNoID = Lists.newArrayList();
 		final List<EObject> originEObjectsNoID = Lists.newArrayList();
 
-//		diagnostic = new BasicDiagnostic(Diagnostic.OK, DIAGNOSTIC_SOURCE, 0,
-//				EMFCompareMessages.getString("IdentifierEObjectMatcher.diagnosticMessage"), null); //$NON-NLS-1$
+		diagnostic = new BasicDiagnostic(Diagnostic.OK, DIAGNOSTIC_SOURCE, 0,
+				EMFCompareMessages.getString("IdentifierEObjectMatcher.diagnosticMessage"), null); //$NON-NLS-1$
 
 		while (leftEObjects.hasNext() || rightEObjects.hasNext() || originEObjects.hasNext()) {
 
@@ -195,8 +195,8 @@ public class IdentifierEObjectMatcher implements IEObjectMatcher {
 	 */
 	protected void doDelegation(Comparison comparison, final List<EObject> leftEObjectsNoID,
 			final List<EObject> rightEObjectsNoID, final List<EObject> originEObjectsNoID, MultiKeyMap<EObject, Double> distanceMap) {
-		delegate.get().createMatches(comparison, leftEObjectsNoID.iterator(), rightEObjectsNoID.iterator(),
-				originEObjectsNoID.iterator(), distanceMap);
+//		delegate.get().createMatches(comparison, leftEObjectsNoID.iterator(), rightEObjectsNoID.iterator(),
+//				originEObjectsNoID.iterator(), distanceMap);
 	}
 
 	/**
