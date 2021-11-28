@@ -558,6 +558,8 @@ public class TestNWay {
 		URI m1URI = URI.createFileURI("E:\\eclipse-dsl202012\\edu.ustb.sei.mde.college\\src\\edu\\ustb\\sei\\mde\\college\\xmi\\college_m1.xmi");
 		Resource m1Resource = new ResourceImpl(m1URI);
 		List<Conflict> conflicts = new ArrayList<>();
+		Map<List<EObject>, EObject> nodesReverseIndexMap = new HashMap<>();
+		List<EObject> resourceNodes = new ArrayList<>();	// 一开始不加到m1Resource里面
 		
 		nodeMatchGroupMap.forEach((baseEObject, list) -> {
 			// 先计算点的合并类型
@@ -606,6 +608,10 @@ public class TestNWay {
 				// 更新nodesIndexMap							
 				List<EObject> sourceIndex = nodesIndexMap.get(baseEObject);
 				nodesIndexMap.put(create, sourceIndex);
+				// 更新nodexReverseIndexMap
+				nodesReverseIndexMap.put(sourceIndex, create);
+				// 加到resourceNodes
+				resourceNodes.add(create);
 			}
 			
 		});
@@ -644,9 +650,13 @@ public class TestNWay {
 			if(conflicts.size() == conflictsSize) {
 				EObject create = EcoreUtil.create(finalType);
 				m1Resource.getContents().add(create);
-				// 更新nodexIndexMap
+				// 更新nodesIndexMap
 				List<EObject> sourceIndex = nodesIndexMap.get(key);
 				nodesIndexMap.put(create, sourceIndex);
+				// 更新nodesReverseIndexMap
+				nodesReverseIndexMap.put(sourceIndex, create);
+				// 加到resourceNodes
+				resourceNodes.add(create);
 			}	
 			
 		}
@@ -683,7 +693,7 @@ public class TestNWay {
 							if(branchTarget.equals(finalTarget) == false) {	// Object用equals比较
 								// 冲突：属性值的修改矛盾
 								int len = valueUpdateMayConflict.size();
-								Conflict conflict = new Conflict(valueUpdateMayConflict.subList(0, len-1), ConflictKind.Update, valueUpdateMayConflict.subList(len-1, len), ConflictKind.Update, "属性值的修改矛盾");
+								Conflict conflict = new Conflict(valueUpdateMayConflict.subList(0, len-1), ConflictKind.Update, valueUpdateMayConflict.subList(len-1, len), ConflictKind.Update, "单值属性的修改矛盾");
 								System.out.println("*****" + conflict.toString());
 								conflicts.add(conflict);
 								break;
@@ -752,7 +762,7 @@ public class TestNWay {
 //				// 冲突：删除点-删除多值属性
 //			}
 			
-			if(deleteMayConflict.size()>0 && addition.size()>0) {
+			if(deleteMayConflict.size()>0 && addValueMayConflict.size()>0) {
 				// 冲突：删除点-新加多值属性
 				Conflict conflict = new Conflict(deleteValueMayConflict, ConflictKind.Delete, addValueMayConflict, ConflictKind.Add, "删除点-新加多值属性");
 				System.out.println("*****" + conflict.toString());
@@ -790,9 +800,9 @@ public class TestNWay {
 							continue;
 						}
 						if(addTarget.equals(finalTarget) == false) {	// Object用equals比较
-							// 冲突：新加点的属性值矛盾
+							// 冲突：新加点的单值属性矛盾
 							int len = addMayConflict.size();
-							Conflict conflict = new Conflict(addMayConflict.subList(0, len-1), ConflictKind.Add, addMayConflict.subList(len-1, len), ConflictKind.Add, "新加节点的属性值矛盾");
+							Conflict conflict = new Conflict(addMayConflict.subList(0, len-1), ConflictKind.Add, addMayConflict.subList(len-1, len), ConflictKind.Add, "新加点的单值属性矛盾");
 							System.out.println("*****" + conflict.toString());
 							conflicts.add(conflict);
 							break;
@@ -812,9 +822,6 @@ public class TestNWay {
 		conflictsSize = conflicts.size();
 		for(Entry<ValEdgeMulti, List<ValEdgeMulti>> entry : valEdgeMultiAddMatchGroupMap.entrySet()) {
 			ValEdgeMulti key = entry.getKey();
-			System.out.println("key.getType(): " + key.getType());
-			System.out.println("key.getSourceIndex(): " + key.getSourceIndex());
-			System.out.println("key.getTargets(): " + key.getTargets());
 			
 			List<ValEdgeMulti> list = entry.getValue();
 			List<Object> remain = new ArrayList<>();
@@ -837,8 +844,7 @@ public class TestNWay {
 			
 			// 是否有冲突：新加点不在结果图中（比如类型不兼容）？
 			
-			remain.addAll(addition);	// 这样转换成List
-			System.out.println("remain: " + remain);
+			remain.addAll(addition);	// 这样能转换成List
 			valEdgeMulti_MultiKeyMap.put(key.getType(), key.getSourceIndex(), remain);
 		}
 		
@@ -846,25 +852,191 @@ public class TestNWay {
 		
 		
 		/** RefEdge的合并结果 */
+		System.out.println("\n\n\n");
+		conflictsSize = conflicts.size();
+		MultiKeyMap<Object, List<EObject>> refEdge_MultiKeyMap = new MultiKeyMap<>();
+		for(Entry<RefEdge, List<RefEdge>> entry : refEdgeMatchGroupMap.entrySet()) {
+			RefEdge key = entry.getKey();
+			List<EObject> baseTargetIndex = key.getTargetIndex();
+			
+			List<RefEdge> list = entry.getValue();
+			List<Integer> deleteMayConflict = new ArrayList<>();	
+			List<Integer> updateMayConflict = new ArrayList<>();
+			List<EObject> finalTargetIndex = baseTargetIndex; 
+			boolean flag = true;
+			for(int i=0; i<size-1; i++) {
+				RefEdge refEdge = list.get(i);
+				if(refEdge == null) {	// 删除了点，相关的边也被删除
+					deleteMayConflict.add(i);
+				} else {
+					List<EObject> branchTargetIndex = refEdge.getTargetIndex();
+					if(branchTargetIndex != baseTargetIndex) {
+						updateMayConflict.add(i);
+						if(flag == true) {
+							finalTargetIndex = branchTargetIndex;
+							flag = false;
+						} else {
+							if(branchTargetIndex != finalTargetIndex) {
+								// 冲突：单值引用的矛盾修改
+								int len = updateMayConflict.size();
+								Conflict conflict = new Conflict(updateMayConflict.subList(0, len-1), ConflictKind.Update, updateMayConflict.subList(len-1, len), ConflictKind.Update, "单值引用的矛盾修改");
+								System.out.println("*****" + conflict.toString());
+								conflicts.add(conflict);
+								break;
+							}
+						}
+					}
+				}
+			}
+			
+			if(deleteMayConflict.size()>0 && updateMayConflict.size()>0) {
+				// 冲突：删除了点-修改点的引用
+				Conflict conflict = new Conflict(deleteMayConflict, ConflictKind.Delete, updateMayConflict, ConflictKind.Update, "删除了点-修改点的引用");
+				System.out.println("*****" + conflict.toString());
+				conflicts.add(conflict);
+			}
+			
+			if(conflictsSize == conflicts.size() && deleteMayConflict.size()==0) {
+				refEdge_MultiKeyMap.put(key.getType(), key.getSourceIndex(), finalTargetIndex);
+			}
+			
+		}
+		
+		
+		
 		
 		
 		/** RefEdgeMulti的合并结果 */
+		System.out.println("\n\n\n");
+		conflictsSize = conflicts.size();
+		MultiKeyMap<Object, List<List<EObject>>> refEdgeMulti_MultiKeyMap = new MultiKeyMap<>();
+		for(Entry<RefEdgeMulti, List<RefEdgeMulti>> entry : refEdgeMultiMatchGroupMap.entrySet()) {
+			RefEdgeMulti key = entry.getKey();
+			List<List<EObject>> baseTargetsIndex = key.getTargetsIndex();
+			
+			List<RefEdgeMulti> list = entry.getValue();
+			List<Integer> deleteMayConflict = new ArrayList<>();	
+			List<Integer> addMayConflict = new ArrayList<>();	
+			
+			List<List<EObject>> remain = new ArrayList<>(baseTargetsIndex);	// remain初始化为baseTargetsIndex的拷贝
+			Set<List<EObject>> addition = new HashSet<>();	// 这样就能去重了
+			
+			for(int i=0; i<size-1; i++) {
+				RefEdgeMulti refEdgeMulti = list.get(i);
+				if(refEdgeMulti == null) {
+					deleteMayConflict.add(i);	// 删除了点，相关的边也被删除
+				} else {	// 不视为修改
+					List<List<EObject>> branchTargetsIndex = refEdgeMulti.getTargetsIndex();
+					// 求交集：确定在分支中未删除的元素
+					remain.retainAll(branchTargetsIndex);	
+					// 求差集：确定在分支中新加的元素
+					branchTargetsIndex.removeAll(baseTargetsIndex);	
+					addition.addAll(branchTargetsIndex);
+					// 记录或许发生的冲突
+					if(branchTargetsIndex.size() > 0) {
+						addMayConflict.add(i);
+					}
+					
+				}
+			}
+			// remain和addition求并集，最终是remain加到结果图中
+			remain.addAll(addition);
+			
+			if(deleteMayConflict.size()>0 && addMayConflict.size()>0) {
+				// 冲突：删除点-新加多值引用
+				Conflict conflict = new Conflict(deleteMayConflict, ConflictKind.Delete, addMayConflict, ConflictKind.Add, "删除点-新加多值引用");
+				System.out.println("*****" + conflict.toString());
+				conflicts.add(conflict);
+			}
+			
+			if(conflicts.size() == conflictsSize && deleteMayConflict.size()==0) {
+				refEdgeMulti_MultiKeyMap.put(key.getType(), key.getSourceIndex(), remain);
+			}
+										
+		}
+		
+		
 		
 		
 		/** RefEdgeAdd的合并结果 */
+		System.out.println("\n\n\n");
+		conflictsSize = conflicts.size();
+		for(Entry<RefEdge, List<RefEdge>> entry : refEdgeAddMatchGroupMap.entrySet()) {
+			RefEdge key = entry.getKey();
+			
+			List<RefEdge> list = entry.getValue();
+			List<EObject> finalTargetIndex = null;
+			boolean flag = true;
+			List<Integer> addMayConflict = new ArrayList<>();
+			for(int i=0; i<size-1; i++) {
+				RefEdge refEdge = list.get(i);
+				if(refEdge != null) {
+					addMayConflict.add(i);
+					List<EObject> addTargetIndex = refEdge.getTargetIndex();
+					if(flag == true) {
+						finalTargetIndex = addTargetIndex;
+						flag = false;
+					} else {
+						if(addTargetIndex != finalTargetIndex) {
+							// 冲突：新加点的单值引用矛盾
+							int len = addMayConflict.size();
+							Conflict conflict = new Conflict(addMayConflict.subList(0, len-1), ConflictKind.Add, addMayConflict.subList(len-1, len), ConflictKind.Add, "新加点的单值引用矛盾");
+							System.out.println("*****" + conflict.toString());
+							conflicts.add(conflict);
+						}
+					}
+				}
+			}
+			
+			if(conflicts.size() == conflictsSize) {
+				refEdge_MultiKeyMap.put(key.getType(), key.getSourceIndex(), finalTargetIndex);
+			}
+		}
+		
+		
+		
 		
 		
 		/** RefEdgeMultiAdd的合并结果 */
+		System.out.println("\n\n\n");
+		conflictsSize = conflicts.size();
+		for(Entry<RefEdgeMulti, List<RefEdgeMulti>> entry : refEdgeMultiAddMatchGroupMap.entrySet()) {
+			RefEdgeMulti key = entry.getKey();
+			
+			List<RefEdgeMulti> list = entry.getValue();
+			List<List<EObject>> remain = new ArrayList<>();
+			Set<List<EObject>> addition = null;
+			boolean flag = true;
+			
+			for(int i=0; i<size-1; i++) {
+				RefEdgeMulti refEdgeMulti = list.get(i);
+				if(refEdgeMulti != null) {
+					List<List<EObject>> addTargetsIndex = refEdgeMulti.getTargetsIndex();
+					if(flag == true) {
+						addition = new HashSet<>(addTargetsIndex);	// 这样就能去重了
+						flag = false;
+					} else {
+						// 求并集
+						addition.addAll(addTargetsIndex);
+					}
+				}
+			}
+			
+			// 是否有冲突：新加点不在结果图中（比如类型不兼容）？
+			
+			remain.addAll(addition);	// 这样能转换成List
+			refEdgeMulti_MultiKeyMap.put(key.getType(), key.getSourceIndex(), remain);
+		}
+		
+		
 		
 		
 		
 		// 设置结果图中的属性和关联
 		System.out.println("\n\n\n**************************设置结果图中的属性和关联");
-		for(EObject e : m1Resource.getContents()) {
+		for(EObject e : resourceNodes) {
 			List<EObject> sourceIndex = nodesIndexMap.get(e);
 			EClass eClass = e.eClass();
-			
-			// tmp
 			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
 			
 			for(EAttribute a : eClass.getEAllAttributes()) {
@@ -886,8 +1058,13 @@ public class TestNWay {
 					e.eSet(a, targets);
 				}
 			}
-			
-			
+
+		}
+		
+		for(EObject e : resourceNodes) {
+			List<EObject> sourceIndex = nodesIndexMap.get(e);
+			EClass eClass = e.eClass();
+			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
 			
 			for(EReference r : eClass.getEAllReferences()) {
 				if(r.isChangeable() == false) {
@@ -897,13 +1074,22 @@ public class TestNWay {
 				
 				if(r.isMany() == false) {	// 单值引用
 					System.out.println("单值引用：" + r);
+					List<EObject> targetIndex = refEdge_MultiKeyMap.get(r, sourceIndex);
+					EObject node = nodesReverseIndexMap.get(targetIndex);
+					e.eSet(r, node);
 					
 				} else {	// 多值引用
 					System.out.println("多值引用：" + r);
-					
+					List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);
+					// 最终eSet的List
+					List<EObject> finalList = new ArrayList<>();
+					for(List<EObject> targetIndex : targetsIndex) {
+						EObject node = nodesReverseIndexMap.get(targetIndex);
+						finalList.add(node);											
+					}	
+					e.eSet(r, finalList);	
 				}
 			}
-			
 		}
 		
 		
@@ -911,11 +1097,31 @@ public class TestNWay {
 		System.out.println("\n\n\n*****************baseEResource");
 		baseResource.getAllContents().forEachRemaining(e -> {
 			System.out.println(e);
+			EClass eClass = e.eClass();
+			eClass.getEAllReferences().forEach(r -> {
+				if(r.isMany() == false) {
+					System.out.print("单值引用");
+				} else {
+					System.out.print("多值引用");
+				}
+				System.out.println(r.getName() + ": " + e.eGet(r));
+			});
+			System.out.println("\n");
 		});
 		
 		System.out.println("\n\n\n*****************m1Resource");
 		m1Resource.getAllContents().forEachRemaining(e -> {
 			System.out.println(e);
+			EClass eClass = e.eClass();
+			eClass.getEAllReferences().forEach(r -> {
+				if(r.isMany() == false) {
+					System.out.print("单值引用");
+				} else {
+					System.out.print("多值引用");
+				}
+				System.out.println(r.getName() + ": " + e.eGet(r));
+			});
+			System.out.println("\n");
 		});	
 		
 		System.out.println("line 764");

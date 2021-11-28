@@ -6,5 +6,6 @@
   <eClassifiers xsi:type="ecore:EClass" name="Account">
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="id" ordered="false" lowerBound="1"
         eType="#//String"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="age" eType="#//Integer"/>
   </eClassifiers>
 </ecore:EPackage>
