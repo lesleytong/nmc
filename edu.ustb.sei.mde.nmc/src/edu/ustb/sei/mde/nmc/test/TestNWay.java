@@ -225,7 +225,7 @@ public class TestNWay {
 		MaximalCliquesWithPivot ff = new MaximalCliquesWithPivot();
 		ff.initGraph(vertices, edges);
 		List<List<EObject>> maximalCliques = new ArrayList<>();
-		if (vertices.size() > 0 && edges.size() > 0) {
+		if(vertices.size() > 0 ) {
 			ff.Bron_KerboschPivotExecute(maximalCliques);
 		}
 
@@ -322,7 +322,7 @@ public class TestNWay {
 		}
 
 		// tmp
-		System.out.println("\n\n\n----------------------matchGroupList: ");
+		System.out.println("\n\n\n----------------------nodeAddMatchGroupMap: ");
 		nodeAddMatchGroupMap.values().forEach(list -> {
 			list.forEach(e -> {
 				System.out.println(e);
@@ -403,7 +403,7 @@ public class TestNWay {
 			
 			for(int i=0; i<size-1; i++) {
 				EObject branchEObject = list.get(i);
-				System.out.println("\n\n***************************遍历list***************************");
+				System.out.println("\n\n------------------遍历list--------------------");
 				if(branchEObject != null) {
 					// 因为在同一个matchGroup，sourceIndex相同
 					System.out.println("branchEObject: " + branchEObject);
@@ -653,9 +653,9 @@ public class TestNWay {
 		
 				
 		/** ValEdge的合并结果 **/
-		System.out.println("\n\n\n***************ValEdge的合并结果******************");
+		System.out.println("\n\n\n");
 		conflictsSize = conflicts.size();
-		MultiKeyMap<Object, Object> valEdgeMultiKeyMap = new MultiKeyMap<>();
+		MultiKeyMap<Object, Object> valEdge_MultiKeyMap = new MultiKeyMap<>();
 		for (Entry<ValEdge, List<ValEdge>> entry : valEdgeMatchGroupMap.entrySet()) {
 			ValEdge key = entry.getKey();
 			Object baseTarget = key.getTarget();
@@ -668,12 +668,13 @@ public class TestNWay {
 			for(int i=0; i<size-1; i++) {
 				ValEdge valEdge = list.get(i);		
 				if(valEdge == null) {
-					deleteMayConflict.add(i);	// 删除了点，相关的边也自动被删除了
+					deleteMayConflict.add(i);	// 删除了点，相关的边也被删除
 				} else {
 					Object branchTarget = valEdge.getTarget();			
-					if(branchTarget==null && baseTarget==null) {
+					if(branchTarget==null && baseTarget==null) {	// null和null用equals比较要报错
 						continue;
-					} else if(branchTarget.equals(baseTarget) == false) {	// Object用equals比较
+					}
+					if(branchTarget.equals(baseTarget) == false) {	// Object用equals比较
 						valueUpdateMayConflict.add(i);
 						if(flag == true) {
 							finalTarget = branchTarget;
@@ -702,15 +703,72 @@ public class TestNWay {
 			}
 						
 			if(conflictsSize == conflicts.size() && deleteMayConflict.size()==0) {
-				valEdgeMultiKeyMap.put(key.getType(), key.getSourceIndex(), finalTarget);
+				valEdge_MultiKeyMap.put(key.getType(), key.getSourceIndex(), finalTarget);
 			}
 	        
 	    }
 
-		// ValEdgeMulti的合并结果
+		/** ValEdgeMulti的合并结果 */
+		System.out.println("\n\n\n");
+		conflictsSize = conflicts.size();
+		MultiKeyMap<Object, Object> valEdgeMulti_MultiKeyMap = new MultiKeyMap<>();
+		for(Entry<ValEdgeMulti, List<ValEdgeMulti>> entry : valEdgeMultiMatchGroupMap.entrySet()) {
+			ValEdgeMulti key = entry.getKey();
+			List<Object> baseTargets = key.getTargets();
+			
+			List<ValEdgeMulti> list = entry.getValue();
+			List<Integer> deleteMayConflict = new ArrayList<>();	
+			List<Integer> deleteValueMayConflict = new ArrayList<>();	// 暂时没用这个
+			List<Integer> addValueMayConflict = new ArrayList<>();	
+			
+			List<Object> remain = new ArrayList<>(baseTargets);	// remain初始化为baseTargets的拷贝
+			Set<Object> addition = new HashSet<>();	// 这样就能去重了
+			
+			for(int i=0; i<size-1; i++) {
+				ValEdgeMulti valEdgeMulti = list.get(i);
+				if(valEdgeMulti == null) {
+					deleteMayConflict.add(i);	// 删除了点，相关的边也被删除
+				} else {	// 不视为修改
+					List<Object> branchTargets = valEdgeMulti.getTargets();
+					// 求交集：确定在分支中未删除的元素
+					remain.retainAll(branchTargets);	
+					// 求差集：确定在分支中新加的元素
+					branchTargets.removeAll(baseTargets);	
+					addition.addAll(branchTargets); 	
+					// 记录或许发生的冲突
+//					if(remain.size()<baseTargets.size() ) {		// 不对，remian是累积的
+//						deleteValueMayConflict.add(i);			
+//					}
+					if(branchTargets.size()>0) {
+						addValueMayConflict.add(i);
+					}
+					
+				}
+			}
+			// remain和addition求并集，最终是remain加到结果图中
+			remain.addAll(addition);
+			
+//			if(deleteMayConflict.size()>0 && remain.size()<baseTargets.size() ) {
+//				// 冲突：删除点-删除多值属性
+//			}
+			
+			if(deleteMayConflict.size()>0 && addition.size()>0) {
+				// 冲突：删除点-新加多值属性
+				Conflict conflict = new Conflict(deleteValueMayConflict, ConflictKind.Delete, addValueMayConflict, ConflictKind.Add, "删除点-新加多值属性");
+				System.out.println("*****" + conflict.toString());
+				conflicts.add(conflict);
+			}
+			
+			if(conflicts.size() == conflictsSize && deleteMayConflict.size()==0) {
+				valEdgeMulti_MultiKeyMap.put(key.getType(), key.getSourceIndex(), remain);
+			}
+			
+		}
+		
 		
 		
 		/** ValEdgeAdd的合并结果 */
+		System.out.println("\n\n\n");
 		conflictsSize = conflicts.size();
 		for (Entry<ValEdge, List<ValEdge>> entry : valEdgeAddMatchGroupMap.entrySet()) {
 			ValEdge key = entry.getKey();
@@ -728,6 +786,9 @@ public class TestNWay {
 						finalTarget = addTarget;
 						flag = false;
 					} else {
+						if(addTarget==null && finalTarget==null) {	// null和null用equals比较要报错
+							continue;
+						}
 						if(addTarget.equals(finalTarget) == false) {	// Object用equals比较
 							// 冲突：新加点的属性值矛盾
 							int len = addMayConflict.size();
@@ -741,23 +802,59 @@ public class TestNWay {
 			}
 			
 			if(conflicts.size() == conflictsSize) {			
-				valEdgeMultiKeyMap.put(key.getType(), key.getSourceIndex(), finalTarget);
+				valEdge_MultiKeyMap.put(key.getType(), key.getSourceIndex(), finalTarget);
 			}
 		}
 		
 		
-		// ValEdgeMultiAdd
+		/** ValEdgeMultiAdd */
+		System.out.println("\n\n\n");
+		conflictsSize = conflicts.size();
+		for(Entry<ValEdgeMulti, List<ValEdgeMulti>> entry : valEdgeMultiAddMatchGroupMap.entrySet()) {
+			ValEdgeMulti key = entry.getKey();
+			System.out.println("key.getType(): " + key.getType());
+			System.out.println("key.getSourceIndex(): " + key.getSourceIndex());
+			System.out.println("key.getTargets(): " + key.getTargets());
+			
+			List<ValEdgeMulti> list = entry.getValue();
+			List<Object> remain = new ArrayList<>();
+			Set<Object> addition = null;
+			boolean flag = true;
+			
+			for(int i=0; i<size-1; i++) {
+				ValEdgeMulti valEdgeMulti = list.get(i);
+				if(valEdgeMulti != null) {
+					List<Object> addTargets = valEdgeMulti.getTargets();
+					if(flag == true) {
+						addition = new HashSet<>(addTargets);	// 这样就能去重了
+						flag = false;
+					} else {
+						// 求并集
+						addition.addAll(addTargets);
+					}
+				}			
+			}
+			
+			// 是否有冲突：新加点不在结果图中（比如类型不兼容）？
+			
+			remain.addAll(addition);	// 这样转换成List
+			System.out.println("remain: " + remain);
+			valEdgeMulti_MultiKeyMap.put(key.getType(), key.getSourceIndex(), remain);
+		}
+		
+		
 		
 		
 		/** RefEdge的合并结果 */
 		
 		
-		// RefEdgeMulti的合并结果
+		/** RefEdgeMulti的合并结果 */
 		
 		
 		/** RefEdgeAdd的合并结果 */
 		
-		// RefEdgeMultiAdd的合并结果
+		
+		/** RefEdgeMultiAdd的合并结果 */
 		
 		
 		
@@ -778,16 +875,34 @@ public class TestNWay {
 				}
 				
 				if(a.isMany() == false) {	// 单值属性
-					System.out.println("a: " + a);
-					Object target = valEdgeMultiKeyMap.get(a, sourceIndex);
+					System.out.println("单值属性: " + a);
+					Object target = valEdge_MultiKeyMap.get(a, sourceIndex);
 					System.out.println("target: " + target);
 					e.eSet(a, target);	
 				} else {	// 多值属性
-					
+					System.out.println("多值属性：" + a);
+					List<Object> targets = (List<Object>) valEdgeMulti_MultiKeyMap.get(a, sourceIndex);
+					System.out.println(targets);
+					e.eSet(a, targets);
 				}
 			}
 			
 			
+			
+			for(EReference r : eClass.getEAllReferences()) {
+				if(r.isChangeable() == false) {
+					System.out.println("不能改变的引用：" + r);
+					continue;
+				}
+				
+				if(r.isMany() == false) {	// 单值引用
+					System.out.println("单值引用：" + r);
+					
+				} else {	// 多值引用
+					System.out.println("多值引用：" + r);
+					
+				}
+			}
 			
 		}
 		
