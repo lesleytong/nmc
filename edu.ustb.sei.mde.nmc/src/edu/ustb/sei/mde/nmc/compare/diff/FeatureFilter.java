@@ -54,6 +54,7 @@ public class FeatureFilter {
 			clazz = match.getOrigin().eClass();
 		}
 		return clazz.getEAllReferences().stream().filter(ref -> !isIgnoredReference(match, ref)).iterator();
+		
 	}
 
 	/**
@@ -138,7 +139,7 @@ public class FeatureFilter {
 	 * @return {@code true} if that reference should be ignored by the comparison engine.
 	 */
 	protected boolean isIgnoredReference(Match match, EReference reference) {
-		final boolean toIgnore;
+		final boolean toIgnore;		
 		if (reference != null) {
 			// ignore the derived, container or transient
 			if (!reference.isDerived() && !reference.isContainer() && !reference.isTransient()) {
@@ -149,12 +150,13 @@ public class FeatureFilter {
 				 */
 				// Otherwise if this reference is not set on any side, no use checking it
 				boolean isGenericTypeWithoutArguments = false;
-				boolean isGenericType = reference.getEType() == EcorePackage.eINSTANCE.getEGenericType();
-				if (isGenericType) {
-					isGenericTypeWithoutArguments = IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getLeft())
-							&& IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getRight())
-							&& IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getOrigin());
-				}
+				// lyt: omit
+//				boolean isGenericType = reference.getEType() == EcorePackage.eINSTANCE.getEGenericType();
+//				if (isGenericType) {
+//					isGenericTypeWithoutArguments = IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getLeft())
+//							&& IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getRight())
+//							&& IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getOrigin());
+//				}
 				toIgnore = isGenericTypeWithoutArguments || !referenceIsSet(reference, match);
 			} else if (ReferenceUtil.isFeatureMapDerivedFeature(reference)) {
 				toIgnore = false;

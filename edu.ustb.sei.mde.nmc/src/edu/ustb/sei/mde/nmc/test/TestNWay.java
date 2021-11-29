@@ -1,5 +1,6 @@
 package edu.ustb.sei.mde.nmc.test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -20,7 +21,6 @@ import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EcorePackage;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
-import org.eclipse.emf.ecore.resource.impl.ResourceImpl;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
@@ -54,6 +54,8 @@ public class TestNWay {
 
 		resourceSet.getPackageRegistry().put(EcorePackage.eNS_URI, EcorePackage.eINSTANCE);
 
+		URI m1URI = URI.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank_m1.ecore");
+		
 		URI baseURI = URI.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank.ecore");
 		URI branch1URI = URI
 				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank1.ecore");
@@ -67,6 +69,7 @@ public class TestNWay {
 		uriList.add(branch1URI);
 		uriList.add(branch2URI);
 		uriList.add(branch3URI);
+		
 
 		int size = uriList.size();
 		List<Resource> resourceList = new ArrayList<>(size);
@@ -109,7 +112,7 @@ public class TestNWay {
 			System.out.println("MATCH TIME: " + (end - start) + " ms.\n");
 
 			for (Match match : comparison.getMatches()) {
-				EObject baseEObject = match.getLeft();
+				EObject baseEObject = match.getLeft();				
 				EObject branchEObject = match.getRight();
 				if (baseEObject != null) {
 					List<EObject> list = nodeMatchGroupMap.get(baseEObject);
@@ -379,8 +382,8 @@ public class TestNWay {
 					continue;
 				}
 				
-				if(r.isMany()==false) {	// 单值引用
-					Object value = baseEObject.eGet(r);	
+				if(r.isMany()==false) {	// 单值引用					
+					EObject value = (EObject) baseEObject.eGet(r);	
 					List<EObject> targetIndex = nodesIndexMap.get(value);	
 					RefEdge refEdge = new RefEdge(r, sourceIndex, targetIndex);	// targetIndex maybe unset
 					List<RefEdge> create = new ArrayList<>(Collections.nCopies(size-1, null));
@@ -439,7 +442,7 @@ public class TestNWay {
 						}
 						
 						if(r2.isMany() == false) {	// 单值引用
-							Object value2 = branchEObject.eGet(r2);
+							EObject value2 = (EObject) branchEObject.eGet(r2);
 							List<EObject> targetIndex2 = nodesIndexMap.get(value2);	
 							
 							RefEdge refEdge2 = new RefEdge(r2, sourceIndex, targetIndex2);
@@ -518,7 +521,7 @@ public class TestNWay {
 						}
 						
 						if(r.isMany() == false) {	// 单值引用
-							Object value = addEObject.eGet(r);
+							EObject value = (EObject) addEObject.eGet(r);
 							List<EObject> targetIndex = nodesIndexMap.get(value);
 							RefEdge refEdge = new RefEdge(r, sourceIndex, targetIndex);
 							List<RefEdge> exist = refEdgeAddMatchGroupMap.get(refEdge);
@@ -531,7 +534,7 @@ public class TestNWay {
 							}
 							
 						} else {	// 多值引用
-							List<Object> values = (List<Object>) addEObject.eGet(r);
+							List<EObject> values = (List<EObject>) addEObject.eGet(r);
 							List<List<EObject>> targetsIndex = new ArrayList<>();
 							values.forEach(v -> {
 								targetsIndex.add(nodesIndexMap.get(v));
@@ -555,8 +558,8 @@ public class TestNWay {
 		
 
 		/** 先计算点的合并结果 */
-		URI m1URI = URI.createFileURI("E:\\eclipse-dsl202012\\edu.ustb.sei.mde.college\\src\\edu\\ustb\\sei\\mde\\college\\xmi\\college_m1.xmi");
-		Resource m1Resource = new ResourceImpl(m1URI);
+		Resource m1Resource = resourceSet.createResource(m1URI);	// 用createResource
+		
 		List<Conflict> conflicts = new ArrayList<>();
 		Map<List<EObject>, EObject> nodesReverseIndexMap = new HashMap<>();
 		List<EObject> resourceNodes = new ArrayList<>();	// 一开始不加到m1Resource里面
@@ -604,7 +607,6 @@ public class TestNWay {
 			
 			if(conflicts.size() == 0 && deleteMayConflict.size() == 0) {
 				EObject create = EcoreUtil.create(finalEClass);
-				m1Resource.getContents().add(create);	// may incorrect?
 				// 更新nodesIndexMap							
 				List<EObject> sourceIndex = nodesIndexMap.get(baseEObject);
 				nodesIndexMap.put(create, sourceIndex);
@@ -649,7 +651,6 @@ public class TestNWay {
 			
 			if(conflicts.size() == conflictsSize) {
 				EObject create = EcoreUtil.create(finalType);
-				m1Resource.getContents().add(create);
 				// 更新nodesIndexMap
 				List<EObject> sourceIndex = nodesIndexMap.get(key);
 				nodesIndexMap.put(create, sourceIndex);
@@ -1058,14 +1059,18 @@ public class TestNWay {
 					e.eSet(a, targets);
 				}
 			}
+			
+			// 在设置当前节点的引用时，可能target的属性还没设置
+			
 
 		}
 		
+		System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 		for(EObject e : resourceNodes) {
 			List<EObject> sourceIndex = nodesIndexMap.get(e);
 			EClass eClass = e.eClass();
 			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
-			
+		
 			for(EReference r : eClass.getEAllReferences()) {
 				if(r.isChangeable() == false) {
 					System.out.println("不能改变的引用：" + r);
@@ -1090,11 +1095,11 @@ public class TestNWay {
 					e.eSet(r, finalList);	
 				}
 			}
+			
 		}
-		
-		
+				
 		// tmp
-		System.out.println("\n\n\n*****************baseEResource");
+		System.out.println("\n\n\n*****************baseEResource***********************");
 		baseResource.getAllContents().forEachRemaining(e -> {
 			System.out.println(e);
 			EClass eClass = e.eClass();
@@ -1104,13 +1109,14 @@ public class TestNWay {
 				} else {
 					System.out.print("多值引用");
 				}
-				System.out.println(r.getName() + ": " + e.eGet(r));
+				System.out.println(r.getName());
+				System.out.println(e.eGet(r));
 			});
-			System.out.println("\n");
+			System.out.println("---------------------\n");
 		});
 		
-		System.out.println("\n\n\n*****************m1Resource");
-		m1Resource.getAllContents().forEachRemaining(e -> {
+		System.out.println("\n\n\n*****************resourceNodes************************");
+		resourceNodes.forEach(e -> {
 			System.out.println(e);
 			EClass eClass = e.eClass();
 			eClass.getEAllReferences().forEach(r -> {
@@ -1119,13 +1125,23 @@ public class TestNWay {
 				} else {
 					System.out.print("多值引用");
 				}
-				System.out.println(r.getName() + ": " + e.eGet(r));
+				System.out.println(r.getName());
+				System.out.println(e.eGet(r));
 			});
-			System.out.println("\n");
-		});	
+			System.out.println("---------------------\n");
+		});
 		
-		System.out.println("line 764");
+		/** 写入到文件 */
+		List<EObject> roots = resourceNodes.stream().filter(n -> n.eContainer()==null).collect(Collectors.toList());
+		m1Resource.getContents().addAll(roots);
+		try {
+			m1Resource.save(null);
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		System.out.println("已写入到文件");
 		
+		System.out.println("done");
 	}
 
 	private static EClass computeSubType(EClass leftEClass, EClass rightEClass) {

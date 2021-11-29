@@ -136,9 +136,10 @@ public class DefaultDiffEngine{
 			computeDifferences(match, attribute, considerOrdering);
 		}
 
-		for (Match submatch : match.getSubmatches()) {
-			internalCheckForDifferences(submatch, featureFilter);
-		}
+		// lyt: no submatch
+//		for (Match submatch : match.getSubmatches()) {
+//			internalCheckForDifferences(submatch, featureFilter);
+//		}
 	}
 
 	/**

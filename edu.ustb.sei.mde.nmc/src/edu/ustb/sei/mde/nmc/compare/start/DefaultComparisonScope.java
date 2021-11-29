@@ -27,8 +27,9 @@ public class DefaultComparisonScope extends FilterComparisonScope {
 	 */
 	public DefaultComparisonScope(Notifier left, Notifier right, Notifier origin) {
 		super(left, right, origin);
-		setEObjectContentFilter(not(IS_EGENERIC_TYPE_WITHOUT_PARAMETERS));
-		setResourceContentFilter(not(IS_EGENERIC_TYPE_WITHOUT_PARAMETERS));
+		// lyt: omit
+//		setEObjectContentFilter(not(IS_EGENERIC_TYPE_WITHOUT_PARAMETERS));
+//		setResourceContentFilter(not(IS_EGENERIC_TYPE_WITHOUT_PARAMETERS));
 	}
 }
 

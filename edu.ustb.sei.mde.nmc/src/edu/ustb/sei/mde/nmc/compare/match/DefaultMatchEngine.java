@@ -259,7 +259,7 @@ public class DefaultMatchEngine implements IMatchEngine {
 		}
 
 		getEObjectMatcher().createMatches(comparison, leftEObjects, rightEObjects, originEObjects, null);
-
+		
 	}
 
 	/**
