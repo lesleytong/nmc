@@ -13,19 +13,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.map.MultiKeyMap;
-import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EReference;
-import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.EcorePackage;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
-import org.eclipse.emf.ecore.util.FeatureMap;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 
 import edu.ustb.sei.mde.nmc.compare.Comparison;
@@ -39,21 +36,15 @@ import edu.ustb.sei.mde.nmc.compare.start.DefaultComparisonScope;
 import edu.ustb.sei.mde.nmc.compare.start.EMFCompare;
 import edu.ustb.sei.mde.nmc.compare.start.MatchEngineFactoryImpl;
 import edu.ustb.sei.mde.nmc.compare.start.MatchEngineFactoryRegistryImpl;
-import edu.ustb.sei.mde.nmc.compare.util.DiffUtil;
-import edu.ustb.sei.mde.nmc.compare.util.ReferenceUtil;
 import edu.ustb.sei.mde.nmc.nway.Conflict;
 import edu.ustb.sei.mde.nmc.nway.ConflictKind;
 import edu.ustb.sei.mde.nmc.nway.MaximalCliquesWithPivot;
 import edu.ustb.sei.mde.nmc.nway.RefEdge;
 import edu.ustb.sei.mde.nmc.nway.RefEdgeMulti;
-import edu.ustb.sei.mde.nmc.nway.TopoGraph;
-import edu.ustb.sei.mde.nmc.nway.Tuple;
 import edu.ustb.sei.mde.nmc.nway.ValEdge;
 import edu.ustb.sei.mde.nmc.nway.ValEdgeMulti;
 
-public class TestNWay {
-	
-	static int size;
+public class TestNWay2 {
 
 	public static void main(String[] args) {
 
@@ -79,12 +70,8 @@ public class TestNWay {
 		uriList.add(branch2URI);
 		uriList.add(branch3URI);
 		
-		// 指定需要进行排序的类型
-		Set<String> needOrderSet = new HashSet<>();
-		needOrderSet.add("eClassifiers");
-		
 
-		size = uriList.size();
+		int size = uriList.size();
 		List<Resource> resourceList = new ArrayList<>(size);
 		Map<Resource, Integer> resourceMap = new HashMap<>();
 		for (int i = 0; i < size; i++) {
@@ -356,9 +343,6 @@ public class TestNWay {
 		
 		Map<RefEdge, List<RefEdge>> refEdgeMatchGroupMap = new HashMap<>();
 		Map<RefEdgeMulti, List<RefEdgeMulti>> refEdgeMultiMatchGroupMap = new HashMap<>();
-		
-		// 方便序的计算
-		MultiKeyMap<Object, RefEdgeMulti> refEdgeMultiHelper = new MultiKeyMap<>();
 				
 		nodeMatchGroupMap.forEach((baseEObject, list) -> {
 			
@@ -416,15 +400,13 @@ public class TestNWay {
 					List<RefEdgeMulti> create = new ArrayList<>(Collections.nCopies(size-1, null));
 					refEdgeMultiMatchGroupMap.put(refEdgeMulti, create);
 					
-					// 方便序的计算，保存了原始版本的。
-					refEdgeMultiHelper.put(r, sourceIndex, refEdgeMulti);
 				}
 			}
 						
 			
 			for(int i=0; i<size-1; i++) {
 				EObject branchEObject = list.get(i);
-				System.out.println("\n\n------------------遍历分支list--------------------");
+				System.out.println("\n\n------------------遍历list--------------------");
 				if(branchEObject != null) {
 					// 因为在同一个matchGroup，sourceIndex相同
 					System.out.println("branchEObject: " + branchEObject);
@@ -467,7 +449,6 @@ public class TestNWay {
 							refEdgeMatchGroupMap.get(refEdge2).set(i, refEdge2);
 											
 						} else {	// 多值引用
-							
 							List<EObject> values2 = (List<EObject>) branchEObject.eGet(r2);
 							
 							List<List<EObject>> targetsIndex2 = new ArrayList<>();
@@ -491,9 +472,6 @@ public class TestNWay {
 		
 		Map<RefEdge, List<RefEdge>> refEdgeAddMatchGroupMap = new HashMap<>();
 		Map<RefEdgeMulti, List<RefEdgeMulti>> refEdgeMultiAddMatchGroupMap = new HashMap<>();
-		
-		// 方便序的计算
-		MultiKeyMap<Object, RefEdgeMulti> refEdgeMultiAddHelper = new MultiKeyMap<>();
 		
 		for(List<EObject> list : nodeAddMatchGroupMap.values()) {	
 			for(int i=0; i<size-1; i++) {
@@ -570,10 +548,6 @@ public class TestNWay {
 							} else {
 								exist.set(i, refEdgeMulti);
 							}
-							
-							// 方便序的计算，保存第一个分支的
-							refEdgeMultiAddHelper.put(r, sourceIndex, refEdgeMulti);
-							
 						}
 					}
 				}			
@@ -953,7 +927,7 @@ public class TestNWay {
 				if(refEdgeMulti == null) {
 					deleteMayConflict.add(i);	// 删除了点，相关的边也被删除
 				} else {	// 不视为修改
-					List<List<EObject>> branchTargetsIndex = new ArrayList<>(refEdgeMulti.getTargetsIndex());	// 不然括号里的会被影响
+					List<List<EObject>> branchTargetsIndex = refEdgeMulti.getTargetsIndex();
 					// 求交集：确定在分支中未删除的元素
 					remain.retainAll(branchTargetsIndex);	
 					// 求差集：确定在分支中新加的元素
@@ -1096,7 +1070,7 @@ public class TestNWay {
 			}
 			
 			// 在设置当前节点的引用时，可能target的属性还没设置，但不影响最终的结果
-			// 所以可以把下面处理引用的放到这里，遍历一次即可
+			// 所以可以把下面处理引用的放到这里
 
 		}
 		
@@ -1121,90 +1095,27 @@ public class TestNWay {
 				} else {	// 多值引用
 					System.out.println("多值引用：" + r);
 					List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);
-					
-					// initialize
-					List<List<EObject>> mergeIndex = targetsIndex;
-									
-					// 需要进行排序
-					if(needOrderSet.contains(r.getName())) {
-						
-						RefEdgeMulti refEdgeMulti = refEdgeMultiHelper.get(r, sourceIndex);
-						RefEdgeMulti refEdgeMultiAdd = null;
-						Map<List<EObject>, Integer> baseFlag = new HashMap<>();	
-						MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
-						
-						if(refEdgeMulti != null) {
-							for(int i=0; i<refEdgeMulti.getTargetsIndex().size(); i++) {
-								List<EObject> index = refEdgeMulti.getTargetsIndex().get(i);
-								baseFlag.put(index, i);
-							}
-							
-							List<RefEdgeMulti> list = refEdgeMultiMatchGroupMap.get(refEdgeMulti);
-							for(int i=0; i<size-1; i++) {
-								RefEdgeMulti refEdgeMulti2 = list.get(i);	// refEdgeMulti2可能为null吗？先暂时这样
-								for(int j=0; j<refEdgeMulti2.getTargetsIndex().size(); j++) {
-									List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
-									branchFlag.put(i, index, j);
-								}
-							}
-							
-						} else {
-							refEdgeMultiAdd = refEdgeMultiAddHelper.get(r, sourceIndex);
-							List<RefEdgeMulti> list = refEdgeMultiAddMatchGroupMap.get(refEdgeMultiAdd);
-							for(int i=0; i<size-1; i++) {
-								RefEdgeMulti refEdgeMulti2 = list.get(i);	// 新加的列表，可能出现null
-								if(refEdgeMulti2 != null) {
-									for(int j=0; j<refEdgeMulti2.getTargetsIndex().size(); j++) {
-										List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
-										branchFlag.put(i, index, j);
-									}
-								}
-							}
-						}
-
-						int nodeSize = targetsIndex.size(); 
-						TopoGraph g = new TopoGraph(nodeSize);
-						
-						for(int i=0; i<nodeSize-1; i++) {
-							List<EObject> xIndex = targetsIndex.get(i);
-							for(int j=i+1; j<nodeSize; j++) {
-								List<EObject> yIndex = targetsIndex.get(j);
-							
-								Order order = null;
-								if(refEdgeMulti != null) {
-									order = computeOrd(baseFlag, branchFlag, xIndex, yIndex);																	
-								} else if(refEdgeMultiAdd != null){
-									order = computeOrd(null, branchFlag, xIndex, yIndex);	
-								}														
-								if(order == order.less) {
-									g.addEdge(i, j);
-								} else if(order == order.greater) {
-									g.addEdge(j, i);
-								}
-							}
-						}
-						
-						// 或许还要传conflicts
-						try {
-							List<Integer> topologicalSort = g.topologicalSort();
-							mergeIndex = new ArrayList<>();
-							for(Integer i : topologicalSort) {
-								mergeIndex.add(targetsIndex.get(i));
-							}
-									
-						} catch (Exception e1) {
-							e1.printStackTrace();
-						}
-						
-					}
-							
+					// 最终eSet的List
 					List<EObject> finalList = new ArrayList<>();
-					for(List<EObject> nodeIndex : mergeIndex) {
-						EObject node = nodesReverseIndexMap.get(nodeIndex);
+					for(List<EObject> targetIndex : targetsIndex) {
+						EObject node = nodesReverseIndexMap.get(targetIndex);
 						finalList.add(node);											
-					}
+					}	
 					
-					// 最后才eSet
+					
+					// 对finalList进行排序
+					if(r.getName().equals("eClassifiers")) {
+						
+						for(int i=0; i<finalList.size(); i++) {
+							EObject ei = finalList.get(i);
+							for(int j=0; j<finalList.size(); j++) {
+								EObject ej = finalList.get(j);
+								
+							}
+						}
+					}
+						
+				
 					e.eSet(r, finalList);	
 				}
 			}
@@ -1245,119 +1156,18 @@ public class TestNWay {
 		});
 		
 
-		/** 写入到文件 */
-		List<EObject> roots = resourceNodes.stream().filter(n -> n.eContainer()==null).collect(Collectors.toList());
-		m1Resource.getContents().addAll(roots);
-		try {
-			m1Resource.save(null);
-		} catch (IOException e1) {
-			e1.printStackTrace();
-		}
-		System.out.println("已写入到文件");
+//		/** 写入到文件 */
+//		List<EObject> roots = resourceNodes.stream().filter(n -> n.eContainer()==null).collect(Collectors.toList());
+//		m1Resource.getContents().addAll(roots);
+//		try {
+//			m1Resource.save(null);
+//		} catch (IOException e1) {
+//			e1.printStackTrace();
+//		}
+//		System.out.println("已写入到文件");
 		
 		System.out.println("done");
 	}
-
-
-	/**
-	 * 计算xIndex和yIndex的合并序
-	 */
-	private static Order computeOrd(Map<List<EObject>, Integer> baseFlag, MultiKeyMap<Object, Integer> branchFlag,
-			List<EObject> xIndex, List<EObject> yIndex) {
-
-		List<Tuple<Force, Order>> ord_k = new ArrayList<>();
-		Order o_b = Order.unkown;
-		Integer xPositionBase = -1;
-		Integer yPositionBase = -1;
-		
-		if(baseFlag != null) {
-			xPositionBase = baseFlag.get(xIndex);
-			yPositionBase = baseFlag.get(yIndex);
-			if(xPositionBase!=null && yPositionBase!=null) {
-				Integer resultBase = xPositionBase - yPositionBase;
-				if(resultBase < 0) {
-					o_b = Order.less;
-				} else {
-					o_b = Order.greater;
-				}
-			}
-		}
-
-		for(int i=0; i<size-1; i++) {
-			Force t = Force.soft;
-			Order o = Order.unkown;
-			
-			Integer xPositionBranch = branchFlag.get(i, xIndex);
-			Integer yPositionBranch = branchFlag.get(i, yIndex);
-			// 如果xIndex和yIndex都属于某个分支图
-			if(xPositionBranch!=null && yPositionBranch!=null) {
-				Order o_k = Order.unkown;
-				Integer result = xPositionBranch - yPositionBranch;
-				if(result < 0) {
-					o_k = Order.less;
-				} else {
-					o_k = Order.greater;
-				}				
-				// 如果xIndex和yIndex还都属于基础图
-				if(xPositionBase!=null && yPositionBase!=null) {
-					o = o_b;
-				}
-														
-				if(o_k != o) {	// o_k不等于o，以分支的序为准
-					t = Force.hard;
-					o = o_k;
-				}
-			}
-			
-			ord_k.add(new Tuple<Force, Order>(t, o));
-			
-		}
-		
-		// 再计算合并的序
-		Tuple<Force, Order> t1 = ord_k.get(0);
-		Tuple<Force, Order> t2;
-		for(int p=1; p<ord_k.size(); p++) {
-			t2 = ord_k.get(p);
-			try {
-				t1 = mergeOrd(t1, t2);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}					
-		return t1.second;
-	}
-
-	
-	public static Tuple<Force, Order> mergeOrd(Tuple<Force, Order> c1, Tuple<Force, Order> c2) throws Exception {
-
-		if (c1.first == Force.hard && c2.first == Force.soft) {
-			return new Tuple<Force, Order>(Force.hard, c1.second);
-		} else if (c1.first == Force.soft && c2.first == Force.hard) {
-			return new Tuple<Force, Order>(Force.hard, c2.second);
-		} else if (c1.first == Force.hard && c2.first == Force.hard) {
-			if (c1.second == c2.second) {
-				return new Tuple<Force, Order>(Force.hard, c1.second);
-			} else {
-				throw new Exception("###conflict: 都是Force.hard，且不相同\n");
-			}
-		} else if (c1.first == Force.soft && c2.first == Force.soft) {
-			if (c1.second == Order.unkown && c2.second == Order.unkown) {
-				return new Tuple<Force, Order>(Force.soft, c1.second);
-			} else if (c1.second == Order.unkown && c2.second != Order.unkown) {
-				return new Tuple<Force, Order>(Force.soft, c2.second);
-			} else if (c1.second != Order.unkown && c2.second == Order.unkown) {
-				return new Tuple<Force, Order>(Force.soft, c1.second);
-			} else if (c1.second != Order.unkown && c2.second != Order.unkown) {
-				if (c1.second == c2.second) {
-					return new Tuple<Force, Order>(Force.soft, c1.second);
-				} else {
-					throw new Exception("###conflict: 都是Force.soft，且不相同\n");
-				}
-			}
-		} 
-		return null;
-	}
-
 
 	private static EClass computeSubType(EClass leftEClass, EClass rightEClass) {
 		if(leftEClass == rightEClass) {
@@ -1389,14 +1199,5 @@ public class TestNWay {
 		}
 		return true;
 	}
-		
-}
 
-
-enum Force {
-	soft, hard
-}
-
-enum Order {
-	less, greater, unkown
 }
