@@ -449,6 +449,8 @@ public class ProximityEObjectMatcher implements IEObjectMatcher, ScopeQuery {
 		Iterator<EObject> it = storageToSearchFor.iterator();
 		while (best.distance != 0 && it.hasNext()) {
 			EObject potentialClosest = it.next();
+			System.out.println(eObj.toString()); 
+			System.out.println(potentialClosest.toString());
 			double dist = meter.distance(inProgress, eObj, potentialClosest);
 			if (dist < best.distance) {
 				if (shouldDoubleCheck) {

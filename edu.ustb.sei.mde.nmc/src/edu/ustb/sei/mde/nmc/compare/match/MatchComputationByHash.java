@@ -98,7 +98,6 @@ public class MatchComputationByHash implements HashFunction {
 		int len = wordCount.size();            
 		for(Map.Entry<String,Integer> entry : wordCount.entrySet()){
             String word = entry.getKey();
-			int count = entry.getValue();
 			BigInteger t = this.hash(word);
 			for (int i = 0; i < this.hashbits; i++) {
 				BigInteger bitmask = new BigInteger("1").shiftLeft(i);
@@ -151,6 +150,11 @@ public class MatchComputationByHash implements HashFunction {
 			dis += 1;
 			x = x.and(x.subtract(new BigInteger("1")));
 		}
+		//System.out.println(one.toString(2));
+		//System.out.println(two.toString(2));
+		System.out.println(dis);
 		return dis;
+		
+		
 	}
 }
