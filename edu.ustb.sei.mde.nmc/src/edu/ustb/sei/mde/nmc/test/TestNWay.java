@@ -61,6 +61,7 @@ public class TestNWay {
 		// 指定需要进行排序的类型
 		Set<String> needOrderSet = new HashSet<>();
 		needOrderSet.add("eClassifiers");
+		needOrderSet.add("eStructuralFeatures");
 
 		URI m1URI = URI
 				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank_m1.ecore");
@@ -344,6 +345,7 @@ public class TestNWay {
 		Map<RefEdgeMulti, List<RefEdgeMulti>> refEdgeMultiMatchGroupMap = new HashMap<>();
 
 		// 方便序的计算
+		MultiKeyMap<Object, ValEdgeMulti> valEdgeMultiHelper = new MultiKeyMap<>();
 		MultiKeyMap<Object, RefEdgeMulti> refEdgeMultiHelper = new MultiKeyMap<>();
 
 		nodeMatchGroupMap.forEach((baseEObject, list) -> {
@@ -372,6 +374,11 @@ public class TestNWay {
 					ValEdgeMulti valEdgeMulti = new ValEdgeMulti(a, sourceIndex, targets);
 					List<ValEdgeMulti> create = new ArrayList<>(Collections.nCopies(size - 1, null));
 					valEdgeMultiMatchGroupMap.put(valEdgeMulti, create);
+
+					// 方便序的计算，保存了原始版本的
+					if (needOrderSet.contains(a.getName())) {
+						valEdgeMultiHelper.put(a, sourceIndex, valEdgeMulti);
+					}
 
 				}
 			}
@@ -403,8 +410,10 @@ public class TestNWay {
 					List<RefEdgeMulti> create = new ArrayList<>(Collections.nCopies(size - 1, null));
 					refEdgeMultiMatchGroupMap.put(refEdgeMulti, create);
 
-					// 方便序的计算，保存了原始版本的。
-					refEdgeMultiHelper.put(r, sourceIndex, refEdgeMulti);
+					// 方便序的计算，保存了原始版本的
+					if (needOrderSet.contains(r.getName())) {
+						refEdgeMultiHelper.put(r, sourceIndex, refEdgeMulti);
+					}
 				}
 			}
 
@@ -454,14 +463,11 @@ public class TestNWay {
 							refEdgeMatchGroupMap.get(refEdge2).set(i, refEdge2);
 
 						} else { // 多值引用
-
 							List<EObject> values2 = (List<EObject>) branchEObject.eGet(r2);
-
 							List<List<EObject>> targetsIndex2 = new ArrayList<>();
 							values2.forEach(eObj2 -> {
 								targetsIndex2.add(nodesIndexMap.get(eObj2));
 							});
-
 							RefEdgeMulti refEdgeMulti2 = new RefEdgeMulti(r2, sourceIndex, targetsIndex2);
 							refEdgeMultiMatchGroupMap.get(refEdgeMulti2).set(i, refEdgeMulti2);
 
@@ -479,6 +485,7 @@ public class TestNWay {
 		Map<RefEdgeMulti, List<RefEdgeMulti>> refEdgeMultiAddMatchGroupMap = new HashMap<>();
 
 		// 方便序的计算
+		MultiKeyMap<Object, ValEdgeMulti> valEdgeMultiAddHelper = new MultiKeyMap<>();
 		MultiKeyMap<Object, RefEdgeMulti> refEdgeMultiAddHelper = new MultiKeyMap<>();
 
 		for (List<EObject> list : nodeAddMatchGroupMap.values()) {
@@ -517,6 +524,11 @@ public class TestNWay {
 								valEdgeMultiAddMatchGroupMap.put(valEdgeMulti, create);
 							} else {
 								exist.set(i, valEdgeMulti);
+							}
+
+							// 方便序的计算，保存第一个分支的
+							if (needOrderSet.contains(a.getName())) {
+								valEdgeMultiAddHelper.put(a, sourceIndex, valEdgeMulti);
 							}
 						}
 					}
@@ -558,7 +570,9 @@ public class TestNWay {
 							}
 
 							// 方便序的计算，保存第一个分支的
-							refEdgeMultiAddHelper.put(r, sourceIndex, refEdgeMulti);
+							if (needOrderSet.contains(r.getName())) {
+								refEdgeMultiAddHelper.put(r, sourceIndex, refEdgeMulti);
+							}
 
 						}
 					}
@@ -755,7 +769,7 @@ public class TestNWay {
 				if (valEdgeMulti == null) {
 					deleteMayConflict.add(i); // 删除了点，相关的边也被删除
 				} else { // 不视为修改
-					List<Object> branchTargets = valEdgeMulti.getTargets();
+					List<Object> branchTargets = new ArrayList<>(valEdgeMulti.getTargets()); // 这样不影响括号里的
 					// 求交集：确定在分支中未删除的元素
 					remain.retainAll(branchTargets);
 					// 求差集：确定在分支中新加的元素
@@ -937,7 +951,7 @@ public class TestNWay {
 				if (refEdgeMulti == null) {
 					deleteMayConflict.add(i); // 删除了点，相关的边也被删除
 				} else { // 不视为修改
-					List<List<EObject>> branchTargetsIndex = new ArrayList<>(refEdgeMulti.getTargetsIndex()); // 不然括号里的会被影响
+					List<List<EObject>> branchTargetsIndex = new ArrayList<>(refEdgeMulti.getTargetsIndex()); // 这样不影响括号里的
 					// 求交集：确定在分支中未删除的元素
 					remain.retainAll(branchTargetsIndex);
 					// 求差集：确定在分支中新加的元素
@@ -1053,14 +1067,88 @@ public class TestNWay {
 					Object target = valEdge_MultiKeyMap.get(a, sourceIndex);
 					System.out.println("target: " + target);
 					e.eSet(a, target);
+
 				} else { // 多值属性
 					System.out.println("多值属性：" + a);
 					List<Object> targets = (List<Object>) valEdgeMulti_MultiKeyMap.get(a, sourceIndex);
-					System.out.println(targets);
 
-					// 对targets进行排序
+					if (targets.size() <= 1 || !needOrderSet.contains(a.getName())) {
+						e.eSet(a, targets);
 
-					e.eSet(a, targets);
+					} else {
+						List<Object> finalList = new ArrayList<>();
+
+						// 由于不知道e是否为新加的点
+						ValEdgeMulti valEdgeMulti = valEdgeMultiHelper.get(a, sourceIndex);
+						ValEdgeMulti valEdgeMultiAdd = null;
+						Map<Object, Integer> baseFlag = new HashMap<>();
+						MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
+
+						if (valEdgeMulti != null) {
+							for (int i = 0; i < valEdgeMulti.getTargets().size(); i++) {
+								Object obj = valEdgeMulti.getTargets().get(i);
+								baseFlag.put(obj, i);
+							}
+
+							List<ValEdgeMulti> list = valEdgeMultiMatchGroupMap.get(valEdgeMulti);
+							for (int i = 0; i < size - 1; i++) {
+								ValEdgeMulti valEdgeMulti2 = list.get(i); // 不可能出现null吧
+								for (int j = 0; j < valEdgeMulti2.getTargets().size(); j++) {
+									Object obj = valEdgeMulti2.getTargets().get(j);
+									branchFlag.put(i, obj, j);
+								}
+							}
+
+						} else {
+							valEdgeMultiAdd = valEdgeMultiAddHelper.get(a, sourceIndex);
+							List<ValEdgeMulti> list = valEdgeMultiAddMatchGroupMap.get(valEdgeMultiAdd);
+							for (int i = 0; i < size - 1; i++) {
+								ValEdgeMulti valEdgeMulti2 = list.get(i); // 可能为null
+								if (valEdgeMulti2 != null) {
+									for (int j = 0; j < valEdgeMulti2.getTargets().size(); j++) {
+										Object obj = valEdgeMulti2.getTargets().get(j);
+										branchFlag.put(i, obj, j);
+									}
+								}
+							}
+
+						}
+
+						int nodeSize = targets.size();
+						TopoGraph g = new TopoGraph(nodeSize);
+
+						for (int i = 0; i < nodeSize - 1; i++) {
+							Object x = targets.get(i);
+							for (int j = i + 1; j < nodeSize; j++) {
+								Object y = targets.get(j);
+								Order order = Order.unkown;
+								if (valEdgeMulti != null) {
+									order = computeOrd(baseFlag, branchFlag, x, y);
+								} else if (valEdgeMultiAdd != null) {
+									order = computeOrd(null, branchFlag, x, y);
+								}
+								if (order == order.less) {
+									g.addEdge(i, j);
+								} else if (order == order.greater) {
+									g.addEdge(j, i);
+								}
+							}
+						}
+
+						// 或许还要传进conflicts
+						try {
+							List<Integer> topologicalSort = g.topologicalSort();
+							for (Integer i : topologicalSort) {
+								finalList.add(targets.get(i));
+							}
+						} catch (Exception e1) {
+							e1.printStackTrace();
+						}
+
+						// 最后才eSet
+						e.eSet(a, finalList);
+					}
+
 				}
 			}
 
@@ -1092,94 +1180,86 @@ public class TestNWay {
 					List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);
 					List<EObject> finalList = new ArrayList<>();
 
-					if (targetsIndex.size() == 1) {
+					if (targetsIndex.size() <= 1 || !needOrderSet.contains(r.getName())) {
 						for (List<EObject> nodeIndex : targetsIndex) {
 							EObject node = nodesReverseIndexMap.get(nodeIndex);
 							finalList.add(node);
 						}
 
-					} else if (targetsIndex.size() > 1) {
+					} else {
 						// initialize
-						List<List<EObject>> mergeIndex = targetsIndex;
-						// 需要进行排序
-						if (needOrderSet.contains(r.getName())) {
-							// tmp
-							if (r.getName().equals("colleges")) {
-								System.out.println();
+						List<List<EObject>> mergeIndex = new ArrayList<>();
+						;
+
+						// 由于不知道e是否为新加的点
+						RefEdgeMulti refEdgeMulti = refEdgeMultiHelper.get(r, sourceIndex);
+						RefEdgeMulti refEdgeMultiAdd = null;
+						Map<Object, Integer> baseFlag = new HashMap<>();
+						MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
+
+						if (refEdgeMulti != null) {
+							for (int i = 0; i < refEdgeMulti.getTargetsIndex().size(); i++) {
+								List<EObject> index = refEdgeMulti.getTargetsIndex().get(i);
+								baseFlag.put(index, i);
 							}
-							// 由于不知道e是否为新加的点
-							RefEdgeMulti refEdgeMulti = refEdgeMultiHelper.get(r, sourceIndex);
-							RefEdgeMulti refEdgeMultiAdd = null;
-							Map<List<EObject>, Integer> baseFlag = new HashMap<>();
-							MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
 
-							if (refEdgeMulti != null) {
-								for (int i = 0; i < refEdgeMulti.getTargetsIndex().size(); i++) {
-									List<EObject> index = refEdgeMulti.getTargetsIndex().get(i);
-									baseFlag.put(index, i);
+							List<RefEdgeMulti> list = refEdgeMultiMatchGroupMap.get(refEdgeMulti);
+							for (int i = 0; i < size - 1; i++) {
+								RefEdgeMulti refEdgeMulti2 = list.get(i); // 不可能出现null吧
+								for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
+									List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
+									branchFlag.put(i, index, j);
 								}
+							}
 
-								List<RefEdgeMulti> list = refEdgeMultiMatchGroupMap.get(refEdgeMulti);
-								for (int i = 0; i < size - 1; i++) {
-									RefEdgeMulti refEdgeMulti2 = list.get(i); // 不可能出现null吧
+						} else {
+							refEdgeMultiAdd = refEdgeMultiAddHelper.get(r, sourceIndex);
+							List<RefEdgeMulti> list = refEdgeMultiAddMatchGroupMap.get(refEdgeMultiAdd);
+							for (int i = 0; i < size - 1; i++) {
+								RefEdgeMulti refEdgeMulti2 = list.get(i); // 新加的列表，可能出现null
+								if (refEdgeMulti2 != null) {
 									for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
 										List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
 										branchFlag.put(i, index, j);
 									}
 								}
-
-							} else {
-								refEdgeMultiAdd = refEdgeMultiAddHelper.get(r, sourceIndex);
-								List<RefEdgeMulti> list = refEdgeMultiAddMatchGroupMap.get(refEdgeMultiAdd);
-								for (int i = 0; i < size - 1; i++) {
-									RefEdgeMulti refEdgeMulti2 = list.get(i); // 新加的列表，可能出现null
-									if (refEdgeMulti2 != null) {
-										for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
-											List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
-											branchFlag.put(i, index, j);
-										}
-									}
-								}
 							}
-
-							int nodeSize = targetsIndex.size();
-							TopoGraph g = new TopoGraph(nodeSize);
-
-							for (int i = 0; i < nodeSize - 1; i++) {
-								List<EObject> xIndex = targetsIndex.get(i);
-								for (int j = i + 1; j < nodeSize; j++) {
-									List<EObject> yIndex = targetsIndex.get(j);
-									Order order = null;
-									if (refEdgeMulti != null) {
-										order = computeOrd(baseFlag, branchFlag, xIndex, yIndex);
-									} else if (refEdgeMultiAdd != null) {
-										order = computeOrd(null, branchFlag, xIndex, yIndex);
-									}
-									if (order == order.less) {
-										g.addEdge(i, j);
-									} else if (order == order.greater) {
-										g.addEdge(j, i);
-									}
-								}
-							}
-
-							// 或许还要传conflicts
-							try {
-								List<Integer> topologicalSort = g.topologicalSort();
-								mergeIndex = new ArrayList<>();
-								for (Integer i : topologicalSort) {
-									mergeIndex.add(targetsIndex.get(i));
-								}
-
-							} catch (Exception e1) {
-								e1.printStackTrace();
-							}
-
 						}
 
-						for (List<EObject> nodeIndex : mergeIndex) {
-							EObject node = nodesReverseIndexMap.get(nodeIndex);
-							finalList.add(node);
+						int nodeSize = targetsIndex.size();
+						TopoGraph g = new TopoGraph(nodeSize);
+
+						for (int i = 0; i < nodeSize - 1; i++) {
+							List<EObject> xIndex = targetsIndex.get(i);
+							for (int j = i + 1; j < nodeSize; j++) {
+								List<EObject> yIndex = targetsIndex.get(j);
+								Order order = Order.unkown;
+								if (refEdgeMulti != null) {
+									order = computeOrd(baseFlag, branchFlag, xIndex, yIndex);
+								} else if (refEdgeMultiAdd != null) {
+									order = computeOrd(null, branchFlag, xIndex, yIndex);
+								}
+								if (order == order.less) {
+									g.addEdge(i, j);
+								} else if (order == order.greater) {
+									g.addEdge(j, i);
+								}
+							}
+						}
+
+						// 或许还要传conflicts
+						try {
+							List<Integer> topologicalSort = g.topologicalSort();
+							for (Integer i : topologicalSort) {
+								mergeIndex.add(targetsIndex.get(i));
+							}
+							for (List<EObject> nodeIndex : mergeIndex) {
+								EObject node = nodesReverseIndexMap.get(nodeIndex);
+								finalList.add(node);
+							}
+
+						} catch (Exception e1) {
+							e1.printStackTrace();
 						}
 					}
 
@@ -1236,11 +1316,22 @@ public class TestNWay {
 		System.out.println("done");
 	}
 
+//	/**
+//	 * 计算x和y的合并序
+//	 */
+//	private static Order computeOrd(Map<Object, Integer> baseFlag, MultiKeyMap<Object, Integer> branchFlag, Object x,
+//			Object y) {
+//		
+//		
+//		
+//		return null;
+//	}
+
 	/**
 	 * 计算xIndex和yIndex的合并序
 	 */
-	private static Order computeOrd(Map<List<EObject>, Integer> baseFlag, MultiKeyMap<Object, Integer> branchFlag,
-			List<EObject> xIndex, List<EObject> yIndex) {
+	private static Order computeOrd(Map<Object, Integer> baseFlag, MultiKeyMap<Object, Integer> branchFlag,
+			Object xIndex, Object yIndex) {
 
 		List<Tuple<Force, Order>> ord_k = new ArrayList<>();
 		Order o_b = Order.unkown;
