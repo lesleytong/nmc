@@ -30,7 +30,7 @@ public class HashEObjectMatcher implements IEObjectMatcher	{
 	
 	private ByHashIndex index;
 	
-	private HashFunction meter;
+	private MatchComputationByHash meter;
 	
 	private Map<EObject, Side> eObjectsToSide = Maps.newHashMap();
 	@Override

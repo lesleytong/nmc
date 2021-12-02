@@ -6,9 +6,9 @@ import org.eclipse.emf.ecore.EObject;
 
 public interface HashFunction {
 
-	boolean areIdentic(BigInteger one, BigInteger two);
+	//boolean areIdentic(BigInteger one, BigInteger two);
 	//to be implement in MatchComputationByHash
 
-	double distance(BigInteger one, BigInteger two);
+	//double distance(BigInteger one, BigInteger two);
 	//to be implement in MatchComputationByHash
 }
