@@ -61,7 +61,7 @@ public class TestNWay {
 		// 指定需要进行排序的类型
 		Set<String> needOrderSet = new HashSet<>();
 		needOrderSet.add("eClassifiers");
-		needOrderSet.add("eStructuralFeatures");
+//		needOrderSet.add("eStructuralFeatures");
 
 		URI m1URI = URI
 				.createFileURI("E:\\nmc\\edu.ustb.sei.mde.nmc\\src\\edu\\ustb\\sei\\mde\\nmc\\ecore\\bank_m1.ecore");
@@ -218,6 +218,11 @@ public class TestNWay {
 		}
 
 		// tmp
+		System.out.println("\n\n\n----------------------vertices: ");
+		vertices.forEach(v -> {
+			System.out.println(v);
+		});
+
 		System.out.println("\n\n\n----------------------edges: ");
 		edges.forEach(e -> {
 			System.out.println(e.getLeft());
@@ -1169,6 +1174,11 @@ public class TestNWay {
 					continue;
 				}
 
+				// eType在设置时，eGenericType自动被设置了
+				if (r.getName().equals("eGenericType") || r.getName().equals("eGenericSuperTypes")) {
+					continue;
+				}
+
 				if (r.isMany() == false) { // 单值引用
 					System.out.println("单值引用：" + r);
 					List<EObject> targetIndex = refEdge_MultiKeyMap.get(r, sourceIndex);
@@ -1189,7 +1199,6 @@ public class TestNWay {
 					} else {
 						// initialize
 						List<List<EObject>> mergeIndex = new ArrayList<>();
-						;
 
 						// 由于不知道e是否为新加的点
 						RefEdgeMulti refEdgeMulti = refEdgeMultiHelper.get(r, sourceIndex);
@@ -1270,26 +1279,9 @@ public class TestNWay {
 
 		}
 
-		// tmp
-		System.out.println("\n\n\n*****************baseEResource***********************");
-		baseResource.getAllContents().forEachRemaining(e -> {
-			System.out.println(e);
-			EClass eClass = e.eClass();
-			eClass.getEAllReferences().forEach(r -> {
-				if (r.isMany() == false) {
-					System.out.print("单值引用");
-				} else {
-					System.out.print("多值引用");
-				}
-				System.out.println(r.getName());
-				System.out.println(e.eGet(r));
-			});
-			System.out.println("---------------------\n");
-		});
-
 		System.out.println("\n\n\n*****************resourceNodes************************");
 		resourceNodes.forEach(e -> {
-			System.out.println(e);
+			System.out.println("e: " + e);
 			EClass eClass = e.eClass();
 			eClass.getEAllReferences().forEach(r -> {
 				if (r.isMany() == false) {
@@ -1315,17 +1307,6 @@ public class TestNWay {
 
 		System.out.println("done");
 	}
-
-//	/**
-//	 * 计算x和y的合并序
-//	 */
-//	private static Order computeOrd(Map<Object, Integer> baseFlag, MultiKeyMap<Object, Integer> branchFlag, Object x,
-//			Object y) {
-//		
-//		
-//		
-//		return null;
-//	}
 
 	/**
 	 * 计算xIndex和yIndex的合并序

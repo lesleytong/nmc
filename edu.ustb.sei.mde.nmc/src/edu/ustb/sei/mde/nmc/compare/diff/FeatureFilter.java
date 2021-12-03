@@ -150,13 +150,12 @@ public class FeatureFilter {
 				 */
 				// Otherwise if this reference is not set on any side, no use checking it
 				boolean isGenericTypeWithoutArguments = false;
-				// lyt: omit
-//				boolean isGenericType = reference.getEType() == EcorePackage.eINSTANCE.getEGenericType();
-//				if (isGenericType) {
-//					isGenericTypeWithoutArguments = IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getLeft())
-//							&& IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getRight())
-//							&& IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getOrigin());
-//				}
+				boolean isGenericType = reference.getEType() == EcorePackage.eINSTANCE.getEGenericType();
+				if (isGenericType) {
+					isGenericTypeWithoutArguments = IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getLeft())
+							&& IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getRight())
+							&& IS_EGENERIC_TYPE_WITHOUT_PARAMETERS.apply(match.getOrigin());
+				}
 				toIgnore = isGenericTypeWithoutArguments || !referenceIsSet(reference, match);
 			} else if (ReferenceUtil.isFeatureMapDerivedFeature(reference)) {
 				toIgnore = false;

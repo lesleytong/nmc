@@ -6,9 +6,4 @@
     <eStructuralFeatures xsi:type="ecore:EAttribute" xmi:id="_WrwwI4GcEeK-PrTTZpW3tw"
         name="name" eType="#//String"/>
   </eClassifiers>
-  <eClassifiers xsi:type="ecore:EClass" xmi:id="_2t1HUHtuEeKCCdjWtXQmoQ" name="Student"
-      eSuperTypes="#_9MhOkHtZEeKpeZ-e8atWJw">
-    <eStructuralFeatures xsi:type="ecore:EAttribute" xmi:id="_crhTIIGcEeK-PrTTZpW3tw"
-        name="id" eType="#//String"/>
-  </eClassifiers>
 </ecore:EPackage>
