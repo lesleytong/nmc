@@ -1,16 +1,17 @@
 package edu.ustb.sei.mde.nmc.nway;
 
 import java.util.List;
+import org.eclipse.emf.ecore.EObject;
 
-public class Conflict {
-	List<Integer> first;
+public class NodeConflict {
+	List<Tuple2<Integer, EObject>> first;
 	ConflictKind firstKind;
-	List<Integer> second;
+	List<Tuple2<Integer, EObject>> second;
 	ConflictKind secondKind;
 	String information;
 	
-	public Conflict(List<Integer> first, ConflictKind firstKind, List<Integer> second, ConflictKind secondKind,
-			String information) {
+	public NodeConflict(List<Tuple2<Integer, EObject>> first, ConflictKind firstKind, List<Tuple2<Integer, EObject>> second,
+			ConflictKind secondKind, String information) {
 		super();
 		this.first = first;
 		this.firstKind = firstKind;
