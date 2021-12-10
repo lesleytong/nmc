@@ -31,11 +31,11 @@ public class ReadResourceCompare {
 
 		resourceSet.getPackageRegistry().put(EcorePackage.eNS_URI, EcorePackage.eINSTANCE);
 		
-		URI baseURI = URI.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person.ecore");
+		URI baseURI = URI.createFileURI("D:\\src\\test\\person.ecore");
 		URI branch1URI = URI
-				.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person1.ecore");
+				.createFileURI("D:\\src\\test\\person4.ecore");
 		URI branch2URI = URI
-				.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person4.ecore");
+				.createFileURI("D:\\src\\test\\person5.ecore");
 		
 		List<URI> uriList = new ArrayList<>();
 		uriList.add(baseURI);
@@ -53,7 +53,7 @@ public class ReadResourceCompare {
 		
 		// never use identifiers
 		IMatchEngine.Factory.Registry registry = MatchEngineFactoryRegistryImpl.createStandaloneInstance();
-		final MatchEngineFactoryImpl matchEngineFactory = new MatchEngineFactoryImpl(UseIdentifiers.NEVER);
+		final MatchEngineFactoryImpl matchEngineFactory = new MatchEngineFactoryImpl(UseIdentifiers.HASH);
 		matchEngineFactory.setRanking(20);
 		registry.add(matchEngineFactory);
 					
@@ -63,7 +63,7 @@ public class ReadResourceCompare {
 		IComparisonScope scope = null;
 
 //		scope = new DefaultComparisonScope(originResource, leftResource, null);
-		scope = new DefaultComparisonScope(originResource, rightResource, null);
+		scope = new DefaultComparisonScope(leftResource, rightResource, null);
 		Comparison comparison = EMFCompare.builder().setMatchEngineFactoryRegistry(registry).build().compare(scope);
 
 		comparison.getMatches().forEach(m -> {

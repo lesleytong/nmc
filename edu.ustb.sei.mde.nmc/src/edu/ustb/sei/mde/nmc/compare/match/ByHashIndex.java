@@ -30,6 +30,7 @@ public class ByHashIndex implements EObjectIndex{
 	 * hashIndexex recording EObject HashValue
 	 */
 	private Map<EObject, BigInteger> hashIndexes;
+	private Map<String, EObject> invertedIndexes;
 	/**
 	 * the left objects still present in the index.
 	 */
@@ -54,6 +55,7 @@ public class ByHashIndex implements EObjectIndex{
 	public void HashKey(EObject obj) {
 		
 		obj.eAllContents().forEachRemaining(e ->{
+			//System.out.println("-------------------------------");
 			Map<String, Integer> wordCount = new HashMap<String, Integer>();
 			EClass eClass = e.eClass();
 			//System.out.println(eClass.toString());
@@ -61,29 +63,32 @@ public class ByHashIndex implements EObjectIndex{
 				Object eGet = e.eGet(a);
 				if(eGet != null && eGet.toString()!="null" && eGet.toString()!="false") {
 					//System.out.println("a:" + " " + a.getName() + " " + eGet);
-					String str = a.getName()+eGet;
-					wordCount.put(str,wordCount.getOrDefault(str,0)+1);
+					//String str = a.getName()+eGet;
+					wordCount.put(eGet.toString(),wordCount.getOrDefault(a.getName(),0)+1);
 					//System.out.println(str);
 				}
 			});
 			eClass.getEAllReferences().forEach(r ->{
 				Object eGet = e.eGet(r);
 				if(eGet != null && eGet.toString().compareTo("[]") != 0 ) {
-					Pattern pattern = Pattern.compile("[A-Za-z]*\\)");
-					Matcher matcher = pattern.matcher(eGet.toString());
-					if(matcher.find()) {
-						String  str = matcher.group(0).toString();
-						//System.out.println("r:" + r.getName() + "  " + str.substring(0,str.length()-1));
-						str = r.getName() + str.substring(0,str.length()-1);
-						wordCount.put(str,wordCount.getOrDefault(str,0)+1);
-						//System.out.println(str);
-					}
+					//System.out.println("r:" + r.getName().equals("name") + "  " + str.substring(0,str.length()-1));
+					//System.out.println("r:" + r.getName() + "  " + str.substring(0,str.length()-1));
+					//str = r.getName() + str.substring(0,str.length()-1);
+					String str = r.getName();
+					wordCount.put(str,wordCount.getOrDefault(str,0)+1);
+					//System.out.println(str);
 				}
 			});
 			BigInteger hashCode = matchComputationByHash.simHash(wordCount);
-			hashIndexes.put(e, hashCode);
-			//System.out.println(hashCode.toString(2));
-			//System.out.println("---------------------------------------------------" );
+			//hashIndexes.put(e, hashCode);
+			String addStr = "000000000000000";
+			String code = hashCode.toString(2);
+			String str = (addStr + code).substring((addStr + code).length()-64,(addStr + code).length());
+			invertedIndexes.put(str.substring(0,15), e);
+			invertedIndexes.put(str.substring(16,31), e);
+			invertedIndexes.put(str.substring(32,47), e);
+			invertedIndexes.put(str.substring(48,63), e);
+			hashIndexes.put(e, new BigInteger(str,2));
 		});
 		
 	}
@@ -98,6 +103,7 @@ public class ByHashIndex implements EObjectIndex{
 		this.rights = Sets.newLinkedHashSet();
 		this.origins = Sets.newLinkedHashSet();
 		this.hashIndexes = Maps.newHashMap();
+		this.invertedIndexes = Maps.newHashMap();
 		this.matchComputationByHash = new MatchComputationByHash();
 	}
 

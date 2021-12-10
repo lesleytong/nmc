@@ -32,17 +32,17 @@ public class TestHash {
 		
 		resourceSet.getPackageRegistry().put(EcorePackage.eNS_URI, EcorePackage.eINSTANCE);
 		
-		URI baseURI = URI.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person.ecore");
+		URI baseURI = URI.createFileURI("D:\\src\\test\\person.ecore");
 		URI branch1URI = URI
-			.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person1.ecore");
+			.createFileURI("D:\\src\\test\\person1.ecore");
 		URI branch2URI = URI
-			.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person2.ecore");
+			.createFileURI("D:\\src\\test\\person2.ecore");
 		URI branch3URI = URI
-				.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person3.ecore");
+				.createFileURI("D:\\src\\test\\person3.ecore");
 		URI branch4URI = URI
-				.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person4.ecore");
+				.createFileURI("D:\\src\\test\\person4.ecore");
 		URI branch5URI = URI
-				.createFileURI("C:\\Users\\Administrator\\Documents\\code\\eclipse dsl\\src\\test_ecore\\person5.ecore");
+				.createFileURI("D:\\src\\test\\person5.ecore");
 		
 		List<URI> uriList = new ArrayList<>();
 		uriList.add(baseURI);
@@ -68,6 +68,9 @@ public class TestHash {
 		registry.add(matchEngineFactory);
 				
 		Resource person0 = resourceList.get(0);
+		Resource person1 = resourceList.get(1);
+		Resource person2 = resourceList.get(2);
+		Resource person3 = resourceList.get(3);
 		Resource person4 = resourceList.get(4);
 		Resource person5 = resourceList.get(5);
 		IComparisonScope scope = null;
