@@ -3,6 +3,8 @@ package edu.ustb.sei.mde.nmc.nway;
 import java.util.List;
 import org.eclipse.emf.ecore.EObject;
 
+import conflict.ConflictKind;
+
 public class NodeConflict {
 	List<Tuple2<Integer, EObject>> first;
 	ConflictKind firstKind;
