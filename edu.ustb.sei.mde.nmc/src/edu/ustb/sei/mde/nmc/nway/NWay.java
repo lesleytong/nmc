@@ -2,6 +2,7 @@ package edu.ustb.sei.mde.nmc.nway;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
@@ -21,11 +23,14 @@ import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
+import org.eclipse.emf.ecore.xmi.XMLResource;
+import org.eclipse.emf.ecore.xmi.impl.XMLInfoImpl;
+import org.eclipse.emf.ecore.xmi.impl.XMLMapImpl;
 
-import conflict.Conflict;
-import conflict.ConflictFactory;
-import conflict.ConflictKind;
-import conflict.Tuple;
+import edu.ustb.sei.mde.conflict.Conflict;
+import edu.ustb.sei.mde.conflict.ConflictFactory;
+import edu.ustb.sei.mde.conflict.Conflicts;
+import edu.ustb.sei.mde.conflict.Tuple;
 import edu.ustb.sei.mde.nmc.compare.Comparison;
 import edu.ustb.sei.mde.nmc.compare.IComparisonScope;
 import edu.ustb.sei.mde.nmc.compare.Match;
@@ -526,22 +531,11 @@ public class NWay {
 
 		/** 先计算点的合并结果 */
 		Map<List<EObject>, EObject> nodesReverseIndexMap = new HashMap<>();
-		List<EObject> m1ResourceEObjects = new ArrayList<>(); // 一开始不加到m1Resource里面
-		List<EObject> conflictResourceEObjects = new ArrayList<>();
+		List<EObject> m1ResourceEObjects = new ArrayList<>(); // 为了加到合并文件里
+		List<EObject> conflictResourceEObjects = new ArrayList<>();// 为了加到冲突文件里
 
-		// conflictEClass
-		Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
-		EClass conflictEClass = conflict.eClass();
-		EStructuralFeature lefts = conflictEClass.getEStructuralFeature("lefts");
-		EStructuralFeature firstKind = conflictEClass.getEStructuralFeature("firstKind");
-		EStructuralFeature rights = conflictEClass.getEStructuralFeature("rights");
-		EStructuralFeature secondKind = conflictEClass.getEStructuralFeature("secondKind");
-		EStructuralFeature information = conflictEClass.getEStructuralFeature("information");
-		// tupleEClass
-		Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
-		EClass tupleEClass = tuple.eClass();
-		EStructuralFeature eObject = tupleEClass.getEStructuralFeature("eObject");
-		EStructuralFeature description = tupleEClass.getEStructuralFeature("description");
+		List<Conflict> conflictList = new ArrayList<>(); // 为了conflicts引用的eSet；最后加到conflictResourceEObjects中
+		List<Tuple> tupleList = new ArrayList<>(); // 最后加到conflictResourceEObjects中
 
 		// 针对非新加节点
 		nodeMatchGroupMap.forEach((baseEObject, list) -> {
@@ -549,64 +543,59 @@ public class NWay {
 			EClass baseEClass = baseEObject.eClass();
 			EClass finalEClass = baseEClass;
 			boolean flag = true;
+			boolean updateConflictFlag = false;
+
 			// 记录可能产生的冲突
-			List<EObject> deleteMayConflict = new ArrayList<>();
-			List<EObject> updateMayConflict = new ArrayList<>();
+			List<Tuple> deleteMayConflict = new ArrayList<>();
+			List<Tuple> updateMayConflict = new ArrayList<>();
 
 			for (int i = 0; i < size - 1; i++) {
 				EObject branchEObject = list.get(i);
 				if (branchEObject == null) {
 					// 打印出的分支从下标要加1
-					EObject tupleEObject = EcoreUtil.create(tupleEClass);
-					tupleEObject.eSet(eObject, null);
-					tupleEObject.eSet(description, "[branch" + (i + 1) + ";   null; null]");
-					deleteMayConflict.add(tupleEObject);
+					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+					tuple.setBranch(i + 1);
+					deleteMayConflict.add(tuple);
 
 				} else {
 					EClass branchEClass = branchEObject.eClass();
 					if (branchEClass != baseEClass) { // EClass用地址比较
-						// 打印出的分支从下标要加1
-						EObject tupleEObject = EcoreUtil.create(tupleEClass);
-						tupleEObject.eSet(eObject, branchEObject);
-						tupleEObject.eSet(description, "[branch" + (i + 1) + ";   branchEClass: " + branchEClass + "]");
-						updateMayConflict.add(tupleEObject);
+						// 下标加1
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						tuple.setEObject(branchEObject);
+						updateMayConflict.add(tuple);
 
 						if (flag == true) {
 							finalEClass = branchEClass;
-							flag = true;
+							flag = false;
 						} else {
 							finalEClass = computeSubType(finalEClass, branchEClass);
-							if (finalEClass == null) {
-								// 冲突：点的类型修改不兼容
-								int len = updateMayConflict.size();
-								EObject conflictEObject = EcoreUtil.create(conflictEClass);
-								conflictEObject.eSet(lefts, updateMayConflict.subList(0, len - 1));
-								conflictEObject.eSet(firstKind, ConflictKind.UPDATE);
-								conflictEObject.eSet(rights, updateMayConflict.subList(len - 1, len));
-								conflictEObject.eSet(secondKind, ConflictKind.UPDATE);
-								conflictEObject.eSet(information, "点的类型修改不兼容");
-								// 加到全局的conflictList中
-								conflictResourceEObjects.add(conflictEObject);
-								conflictResourceEObjects.addAll(updateMayConflict);
-								break;
+							if (updateConflictFlag == false && finalEClass == null) {
+								updateConflictFlag = true;
 							}
 						}
 					}
 				}
 			}
 
+			if (updateConflictFlag == true) {
+				// 冲突：点的类型修改不兼容
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				conflict.getTuples().addAll(updateMayConflict);
+				conflict.setInformation("点的类型修改不兼容");
+				conflictList.add(conflict);
+				tupleList.addAll(updateMayConflict);
+			}
+
 			if (deleteMayConflict.size() > 0 && updateMayConflict.size() > 0) { // 应该还需要后者的条件
 				// 冲突：删除了点-修改了点的类型
-				EObject conflictEObject = EcoreUtil.create(conflictEClass);
-				conflictEObject.eSet(lefts, deleteMayConflict);
-				conflictEObject.eSet(firstKind, ConflictKind.DELETE);
-				conflictEObject.eSet(rights, updateMayConflict);
-				conflictEObject.eSet(secondKind, ConflictKind.UPDATE);
-				conflictEObject.eSet(information, "删除了点-修改了点的类型");
-				// 加到全局的conflictList中
-				conflictResourceEObjects.add(conflictEObject);
-				conflictResourceEObjects.addAll(deleteMayConflict);
-				conflictResourceEObjects.addAll(updateMayConflict);
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				deleteMayConflict.addAll(updateMayConflict); // 求并集
+				conflict.getTuples().addAll(deleteMayConflict);
+				conflict.setInformation("删除了点-修改了点的类型");
+				conflictList.add(conflict);
+				tupleList.addAll(deleteMayConflict);
 			}
 
 			if (deleteMayConflict.size() == 0) {
@@ -628,39 +617,38 @@ public class NWay {
 
 			EClass finalType = null;
 			boolean flag = true;
-			List<EObject> addMayConflict = new ArrayList<>();
+			boolean addConflictFlag = false;
+			List<Tuple> addMayConflict = new ArrayList<>();
 
 			for (int i = 0; i < size - 1; i++) {
 				EObject addEObject = list.get(i);
 				if (addEObject != null) {
 					EClass addEClass = addEObject.eClass();
 					// 分支下标要加1
-					EObject tupleEObject = EcoreUtil.create(tupleEClass);
-					tupleEObject.eSet(eObject, addEObject);
-					tupleEObject.eSet(description, "[branch" + (i + 1) + ";   addEClass: " + addEClass + "]");
-					addMayConflict.add(tupleEObject);
+					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+					tuple.setBranch(i + 1);
+					tuple.setEObject(addEObject);
+					addMayConflict.add(tuple);
 
 					if (flag == true) {
 						finalType = addEClass;
 						flag = false;
 					} else {
 						finalType = computeSubType(finalType, addEClass);
-						if (finalType == null) {
-							// 冲突：新加点的类型不兼容，就是当前分支和之前的分支吧
-							int len = addMayConflict.size();
-							EObject conflictEObject = EcoreUtil.create(conflictEClass);
-							conflictEObject.eSet(lefts, addMayConflict.subList(0, len - 1));
-							conflictEObject.eSet(firstKind, ConflictKind.ADD);
-							conflictEObject.eSet(rights, addMayConflict.subList(len - 1, len));
-							conflictEObject.eSet(secondKind, ConflictKind.ADD);
-							conflictEObject.eSet(information, "新加点的类型不兼容");
-							// 加到全局的conflictList中
-							conflictResourceEObjects.add(conflictEObject);
-							conflictResourceEObjects.addAll(addMayConflict);
-							break;
+						if (addConflictFlag == false && finalType == null) {
+							addConflictFlag = true;
 						}
 					}
 				}
+			}
+
+			if (addConflictFlag == true) {
+				// 冲突：新加点的类型不兼容，就是当前分支和之前的分支吧
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				conflict.getTuples().addAll(addMayConflict);
+				conflict.setInformation("新加点的类型不兼容");
+				conflictList.add(conflict);
+				tupleList.addAll(addMayConflict);
 			}
 
 			EObject create = EcoreUtil.create(finalType);
@@ -688,20 +676,20 @@ public class NWay {
 			Object baseTarget = key.getTarget();
 			List<ValEdge> list = entry.getValue();
 
-			List<EObject> deleteMayConflict = new ArrayList<>();
-			List<EObject> updateMayConflict = new ArrayList<>();
+			List<Tuple> deleteMayConflict = new ArrayList<>();
+			List<Tuple> updateMayConflict = new ArrayList<>();
 
 			Object finalTarget = baseTarget;
 			boolean flag = true;
+			boolean updateConflictFlag = false;
+
 			for (int i = 0; i < size - 1; i++) {
 				ValEdge valEdge = list.get(i);
 				if (valEdge == null) {
 					// 删除了点，相关的边也自动被删除
-					// 分支下标要加1
-					EObject tupleEObject = EcoreUtil.create(tupleEClass);
-					tupleEObject.eSet(eObject, null);
-					tupleEObject.eSet(description, "[branch" + (i + 1) + ";   null;   null;   null]");
-					deleteMayConflict.add(tupleEObject);
+					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+					tuple.setBranch(i + 1);
+					deleteMayConflict.add(tuple);
 
 				} else {
 					Object branchTarget = valEdge.getTarget();
@@ -709,57 +697,51 @@ public class NWay {
 						continue;
 					}
 					if (branchTarget.equals(baseTarget) == false) { // Object用equals比较
-						// 分支下标要加1
-						EObject tupleEObject = EcoreUtil.create(tupleEClass);
-						tupleEObject.eSet(eObject, sourceIndex.get(i));
-						tupleEObject.eSet(description, "[branch" + (i + 1) + ";   single-attribute: " + a.getName()
-								+ ";   value: " + branchTarget + "]");
-						updateMayConflict.add(tupleEObject);
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						tuple.setEObject(sourceIndex.get(i));
+						tuple.setEStructuralFeature(a);
+						// 单值属性，position为null吧~
+						updateMayConflict.add(tuple);
 
 						if (flag == true) {
 							finalTarget = branchTarget;
 							flag = false;
 						} else {
-							if (branchTarget.equals(finalTarget) == false) { // Object用equals比较
-								// 冲突：单值属性的修改矛盾
-								int len = updateMayConflict.size();
-								EObject conflictEObject = EcoreUtil.create(conflictEClass);
-								conflictEObject.eSet(lefts, updateMayConflict.subList(0, len - 1));
-								conflictEObject.eSet(firstKind, ConflictKind.UPDATE);
-								conflictEObject.eSet(rights, updateMayConflict.subList(len - 1, len));
-								conflictEObject.eSet(secondKind, ConflictKind.UPDATE);
-								conflictEObject.eSet(information, "单值属性的修改矛盾");
-								// 加到全局的conflictList中
-								conflictResourceEObjects.add(conflictEObject);
-								conflictResourceEObjects.addAll(updateMayConflict);
-								break;
+							if (updateConflictFlag == false && branchTarget.equals(finalTarget) == false) { // Object用equals比较
+								updateConflictFlag = true;
 							}
 						}
 					}
 				}
 			}
 
+			if (updateConflictFlag == true) {
+				// 冲突：单值属性的修改矛盾
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				conflict.getTuples().addAll(updateMayConflict);
+				conflict.setInformation("单值属性的修改矛盾");
+				conflictList.add(conflict);
+				tupleList.addAll(updateMayConflict);
+			}
+
 			if (deleteMayConflict.size() > 0 && updateMayConflict.size() > 0) {
 				// 冲突：删除点-修改了点的单值属性
 				// 难道不是重复计算？不直接根据sourceIndex检查结果图中有无对象？
 				// 不是，因为要看具体哪个分支删了
-				EObject conflictEObject = EcoreUtil.create(conflictEClass);
-				conflictEObject.eSet(lefts, deleteMayConflict);
-				conflictEObject.eSet(firstKind, ConflictKind.DELETE);
-				conflictEObject.eSet(rights, updateMayConflict);
-				conflictEObject.eSet(secondKind, ConflictKind.UPDATE);
-				conflictEObject.eSet(information, "删除了点-修改了点的单值属性");
-				// 加到全局的conflictList中
-				conflictResourceEObjects.add(conflictEObject);
-				conflictResourceEObjects.addAll(deleteMayConflict);
-				conflictResourceEObjects.addAll(updateMayConflict);
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				deleteMayConflict.addAll(updateMayConflict); // 求并集
+				conflict.getTuples().addAll(deleteMayConflict);
+				conflict.setInformation("删除了点-修改了点的单值属性");
+				conflictList.add(conflict);
+				tupleList.addAll(deleteMayConflict);
 			}
+
 			// 省略了conflictsSize == valEdgeConflicts.size()
 			// 否则，eSet会抛出NullPointer异常
 			if (deleteMayConflict.size() == 0) {
 				valEdge_MultiKeyMap.put(a, sourceIndex, finalTarget);
 			}
-
 		}
 
 		/** ValEdgeMulti的合并结果 */
@@ -777,8 +759,8 @@ public class NWay {
 			List<Object> baseTargets = key.getTargets();
 
 			List<ValEdgeMulti> list = entry.getValue();
-			List<EObject> deleteMayConflict = new ArrayList<>();
-			List<EObject> addValueMayConflict = new ArrayList<>();
+			List<Tuple> deleteMayConflict = new ArrayList<>();
+			List<Tuple> addValueMayConflict = new ArrayList<>();
 
 			List<Object> remain = new ArrayList<>(baseTargets); // remain初始化为baseTargets的拷贝
 			Set<Object> addition = new HashSet<>(); // 这样就能去重了
@@ -787,26 +769,35 @@ public class NWay {
 				ValEdgeMulti valEdgeMulti = list.get(i);
 				if (valEdgeMulti == null) {
 					// 删除了点，相关的边也自动被删除
-					EObject tupleEObject = EcoreUtil.create(tupleEClass);
-					tupleEObject.eSet(eObject, null);
-					tupleEObject.eSet(description, "[branch" + (i + 1) + ";   null;   null;   null]");
-					deleteMayConflict.add(tupleEObject);
+					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+					tuple.setBranch(i + 1);
+					deleteMayConflict.add(tuple);
 
 				} else { // 不视为修改
-					List<Object> branchTargets = new ArrayList<>(valEdgeMulti.getTargets()); // 这样不影响括号里的
+					List<Object> valEdgeMultiTargets = valEdgeMulti.getTargets();
+					List<Object> branchTargets = new ArrayList<>(valEdgeMultiTargets); // 这样不影响括号里的
 					// 求交集：确定在分支中未删除的元素
 					remain.retainAll(branchTargets);
 					// 求差集：确定在分支中新加的元素
 					branchTargets.removeAll(baseTargets);
 					addition.addAll(branchTargets);
+
+					// 在分支中新加的元素在其所在列表的下标
+					List<Integer> locations = new ArrayList<>();
+					branchTargets.forEach(o -> {
+						int location = valEdgeMultiTargets.indexOf(o);
+						locations.add(location);
+					});
+
 					// 记录或许发生的冲突
 					if (branchTargets.size() > 0) {
 						// 新加了点的多值属性
-						EObject tupleEObject = EcoreUtil.create(tupleEClass);
-						tupleEObject.eSet(eObject, sourceIndex.get(i));
-						tupleEObject.eSet(description, "[branch" + (i + 1) + ";   multi-attribute: " + a.getName()
-								+ ";   values: " + branchTargets + "]");
-						addValueMayConflict.add(tupleEObject);
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						tuple.setEObject(sourceIndex.get(i));
+						tuple.setEStructuralFeature(a);
+						tuple.getPosition().addAll(locations);
+						addValueMayConflict.add(tuple);
 					}
 				}
 			}
@@ -817,16 +808,12 @@ public class NWay {
 
 			// 冲突：删除了点-新加了点的多值属性
 			if (deleteMayConflict.size() > 0 && addValueMayConflict.size() > 0) {
-				EObject conflictEObject = EcoreUtil.create(conflictEClass);
-				conflictEObject.eSet(lefts, deleteMayConflict);
-				conflictEObject.eSet(firstKind, ConflictKind.DELETE);
-				conflictEObject.eSet(rights, addValueMayConflict);
-				conflictEObject.eSet(secondKind, ConflictKind.ADD);
-				conflictEObject.eSet(information, "删除了点-新加了点的多值属性");
-				// 加到全局的conflictList中
-				conflictResourceEObjects.add(conflictEObject);
-				conflictResourceEObjects.addAll(deleteMayConflict);
-				conflictResourceEObjects.addAll(addValueMayConflict);
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				deleteMayConflict.addAll(addValueMayConflict); // 求并集
+				conflict.getTuples().addAll(deleteMayConflict);
+				conflict.setInformation("删除了点-新加了点的多值属性");
+				conflictList.add(conflict);
+				tupleList.addAll(deleteMayConflict);
 			}
 
 			// 省却了conflictsSize == valEdgeMultiConflicts.size()判断条件
@@ -834,7 +821,6 @@ public class NWay {
 			if (deleteMayConflict.size() == 0) {
 				valEdgeMulti_MultiKeyMap.put(a, sourceIndex, remain);
 			}
-
 		}
 
 		/** ValEdgeAdd的合并结果 */
@@ -848,22 +834,24 @@ public class NWay {
 			}
 
 			List<EObject> sourceIndex = key.getSourceIndex();
-
 			List<ValEdge> list = entry.getValue();
 			Object finalTarget = null;
+
 			boolean flag = true;
-			List<EObject> addMayConflict = new ArrayList<>();
+			boolean addConflictFlag = false;
+			List<Tuple> addMayConflict = new ArrayList<>();
 
 			for (int i = 0; i < size - 1; i++) {
 				ValEdge valEdge = list.get(i);
 				if (valEdge != null) {
 					Object addTarget = valEdge.getTarget();
 					// 新加的点
-					EObject tupleEObject = EcoreUtil.create(tupleEClass);
-					tupleEObject.eSet(eObject, sourceIndex.get(i));
-					tupleEObject.eSet(description, "[branch" + (i + 1) + ";   single-attribute: " + a.getName()
-							+ ";   value: " + addTarget + "]");
-					addMayConflict.add(tupleEObject);
+					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+					tuple.setBranch(i + 1);
+					tuple.setEObject(sourceIndex.get(i));
+					tuple.setEStructuralFeature(a);
+					// 单值属性，position为null吧~
+					addMayConflict.add(tuple);
 
 					if (flag == true) {
 						finalTarget = addTarget;
@@ -872,22 +860,20 @@ public class NWay {
 						if (addTarget == null && finalTarget == null) { // null和null用equals比较要报错
 							continue;
 						}
-						if (addTarget.equals(finalTarget) == false) { // Object用equals比较
-							// 冲突：新加点的单值属性矛盾
-							int len = addMayConflict.size();
-							EObject conflictEObject = EcoreUtil.create(conflictEClass);
-							conflictEObject.eSet(lefts, addMayConflict.subList(0, len - 1));
-							conflictEObject.eSet(firstKind, ConflictKind.ADD);
-							conflictEObject.eSet(rights, addMayConflict.subList(len - 1, len));
-							conflictEObject.eSet(secondKind, ConflictKind.ADD);
-							conflictEObject.eSet(information, "新加点的单值属性矛盾");
-							// 加到全局的conflictList中
-							conflictResourceEObjects.add(conflictEObject);
-							conflictResourceEObjects.addAll(addMayConflict);
-							break;
+						if (addConflictFlag == false && addTarget.equals(finalTarget) == false) { // Object用equals比较
+							addConflictFlag = true;
 						}
 					}
 				}
+			}
+
+			if (addConflictFlag == true) {
+				// 冲突：新加点的单值属性矛盾
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				conflict.getTuples().addAll(addMayConflict);
+				conflict.setInformation("新加点的单值属性矛盾");
+				conflictList.add(conflict);
+				tupleList.addAll(addMayConflict);
 			}
 
 			// 省略conflictsSize == valEdgeConflicts.size()
@@ -950,64 +936,59 @@ public class NWay {
 			List<EObject> finalTargetIndex = baseTargetIndex;
 			List<RefEdge> list = entry.getValue();
 
-			List<EObject> deleteMayConflict = new ArrayList<>();
-			List<EObject> updateMayConflict = new ArrayList<>();
+			List<Tuple> deleteMayConflict = new ArrayList<>();
+			List<Tuple> updateMayConflict = new ArrayList<>();
 
 			boolean flag = true;
+			boolean updateConflictFlag = false;
+
 			for (int i = 0; i < size - 1; i++) {
 				RefEdge refEdge = list.get(i);
 				if (refEdge == null) {
 					// 删除了点，相关的边也被删除
-					EObject tupleEObject = EcoreUtil.create(tupleEClass);
-					tupleEObject.eSet(eObject, null);
-					tupleEObject.eSet(description, "[branch" + (i + 1) + ";   null;   null;   null]");
-					deleteMayConflict.add(tupleEObject);
+					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+					tuple.setBranch(i + 1);
+					deleteMayConflict.add(tuple);
 
 				} else {
 					List<EObject> branchTargetIndex = refEdge.getTargetIndex();
 					if (branchTargetIndex != baseTargetIndex) {
-						// 分支下标要加1
-						EObject tupleEObject = EcoreUtil.create(tupleEClass);
-						tupleEObject.eSet(eObject, sourceIndex.get(i));
-						tupleEObject.eSet(description, "[branch" + (i + 1) + ";   single-reference: " + r.getName()
-								+ ";   eObject: " + branchTargetIndex.get(i) + "]");
-						updateMayConflict.add(tupleEObject);
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						tuple.setEObject(sourceIndex.get(i));
+						tuple.setEStructuralFeature(r);
+						// 单值引用的position为null吧~
+						updateMayConflict.add(tuple);
 
 						if (flag == true) {
 							finalTargetIndex = branchTargetIndex;
 							flag = false;
 						} else {
-							if (branchTargetIndex != finalTargetIndex) {
-								// 冲突：单值引用的矛盾修改
-								int len = updateMayConflict.size();
-								EObject conflictEObject = EcoreUtil.create(conflictEClass);
-								conflictEObject.eSet(lefts, updateMayConflict.subList(0, len - 1));
-								conflictEObject.eSet(firstKind, ConflictKind.UPDATE);
-								conflictEObject.eSet(rights, updateMayConflict.subList(len - 1, len));
-								conflictEObject.eSet(secondKind, ConflictKind.UPDATE);
-								conflictEObject.eSet(information, "单值引用的修改矛盾");
-								// 加到全局的conflictList中
-								conflictResourceEObjects.add(conflictEObject);
-								conflictResourceEObjects.addAll(updateMayConflict);
-								break;
+							if (updateConflictFlag == false && branchTargetIndex != finalTargetIndex) {
+								updateConflictFlag = true;
 							}
 						}
 					}
 				}
 			}
 
+			if (updateConflictFlag == true) {
+				// 冲突：单值引用的修改矛盾
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				conflict.getTuples().addAll(updateMayConflict);
+				conflict.setInformation("单值引用的修改矛盾");
+				conflictList.add(conflict);
+				tupleList.addAll(updateMayConflict);
+			}
+
 			if (deleteMayConflict.size() > 0 && updateMayConflict.size() > 0) {
 				// 冲突：删除了点-修改了点的单值引用
-				EObject conflictEObject = EcoreUtil.create(conflictEClass);
-				conflictEObject.eSet(lefts, deleteMayConflict);
-				conflictEObject.eSet(firstKind, ConflictKind.DELETE);
-				conflictEObject.eSet(rights, updateMayConflict);
-				conflictEObject.eSet(secondKind, ConflictKind.UPDATE);
-				conflictEObject.eSet(information, "删除了点-修改了点的单值引用");
-				// 加到全局的conflictList中
-				conflictResourceEObjects.add(conflictEObject);
-				conflictResourceEObjects.addAll(deleteMayConflict);
-				conflictResourceEObjects.addAll(updateMayConflict);
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				deleteMayConflict.addAll(updateMayConflict); // 求并集
+				conflict.getTuples().addAll(deleteMayConflict);
+				conflict.setInformation("删除了点-修改了点的单值引用");
+				conflictList.add(conflict);
+				tupleList.addAll(deleteMayConflict);
 			}
 
 			if (deleteMayConflict.size() == 0) {
@@ -1033,8 +1014,10 @@ public class NWay {
 			List<List<EObject>> baseTargetsIndex = key.getTargetsIndex();
 
 			List<RefEdgeMulti> list = entry.getValue();
-			List<EObject> deleteMayConflict = new ArrayList<>();
-			List<EObject> addMayConflict = new ArrayList<>();
+
+			List<Tuple> deleteMayConflict = new ArrayList<>();
+			List<Tuple> addMayConflict = new ArrayList<>();
+			List<Tuple> deleteOtherConflict = new ArrayList<>();
 
 			List<List<EObject>> remain = new ArrayList<>(baseTargetsIndex); // remain初始化为baseTargetsIndex的拷贝
 			Set<List<EObject>> addition = new HashSet<>(); // 这样就能去重了
@@ -1043,13 +1026,13 @@ public class NWay {
 				RefEdgeMulti refEdgeMulti = list.get(i);
 				if (refEdgeMulti == null) {
 					// 删除了点，相关的边也自动被删除
-					EObject tupleEObject = EcoreUtil.create(tupleEClass);
-					tupleEObject.eSet(eObject, null);
-					tupleEObject.eSet(description, "[branch" + (i + 1) + ";   null;   null;   null]");
-					deleteMayConflict.add(tupleEObject);
+					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+					tuple.setBranch(i + 1);
+					deleteMayConflict.add(tuple);
 
 				} else { // 不视为修改
-					List<List<EObject>> branchTargetsIndex = new ArrayList<>(refEdgeMulti.getTargetsIndex()); // 这样不影响括号里的
+					List<List<EObject>> refEdgeMultiTargetsIndex = refEdgeMulti.getTargetsIndex();
+					List<List<EObject>> branchTargetsIndex = new ArrayList<>(refEdgeMultiTargetsIndex); // 这样不影响括号里的
 					// 求交集：确定在分支中未删除的元素
 					remain.retainAll(branchTargetsIndex);
 					// 求差集：确定在分支中新加的元素
@@ -1058,70 +1041,64 @@ public class NWay {
 					// 记录或许发生的冲突
 					// 如果判断条件为>0的话，branchTargetsIndex.get(0)==null也会进入
 					if (branchTargetsIndex.size() > 0 && branchTargetsIndex.get(0) != null) {
-						List<EObject> tmp = new ArrayList<>();
+//						List<EObject> tmp = new ArrayList<>();
+						List<Integer> locations = new ArrayList<>();
 
-						List<EObject> deleteOtherConflict = new ArrayList<>();
 						for (List<EObject> index : branchTargetsIndex) {
 							if (nodesReverseIndexMap.get(index) == null) {
 								for (int j = 0; j < index.size(); j++) {
 									if (index.get(j) == null) {
-										EObject tupleEObject = EcoreUtil.create(tupleEClass);
-										tupleEObject.eSet(eObject, null);
-										tupleEObject.eSet(description,
-												"[branch" + (j + 1) + ";   null;   null;   null]");
-										deleteOtherConflict.add(tupleEObject);
+										Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+										tuple.setBranch(j + 1);
+										deleteOtherConflict.add(tuple);
 									}
 								}
 							}
-							// 获得分支中真正的对象
-							EObject eObject1 = index.get(i);
-							tmp.add(eObject1);
-						}
-						// 分支下标要加1
-						EObject tupleEObject = EcoreUtil.create(tupleEClass);
-						tupleEObject.eSet(eObject, sourceIndex.get(i));
-						tupleEObject.eSet(description, "[branch" + (i + 1) + ";   multi-reference: " + r.getName()
-								+ ";   eObjects: " + tmp + "]");
-						addMayConflict.add(tupleEObject);
+//							// 获得分支中真正的对象
+//							EObject eObject1 = index.get(i);
+//							tmp.add(eObject1);
 
-						if (deleteOtherConflict.size() > 0) {
-							// 冲突：删除了其他点-新加了当前点的多值引用
-							EObject conflictEObject = EcoreUtil.create(conflictEClass);
-							conflictEObject.eSet(lefts, deleteOtherConflict);
-							conflictEObject.eSet(firstKind, ConflictKind.DELETE);
-							conflictEObject.eSet(rights, addMayConflict);
-							conflictEObject.eSet(secondKind, ConflictKind.ADD);
-							conflictEObject.eSet(information, "删除了其他点-新加了当前点的多值引用");
-							// 加到全局的conflictList中
-							conflictResourceEObjects.add(conflictEObject);
-							conflictResourceEObjects.addAll(deleteOtherConflict);
-							conflictResourceEObjects.addAll(addMayConflict);
-							break;
+							int location = refEdgeMultiTargetsIndex.indexOf(index);
+							locations.add(location);
+
 						}
+
+						// 分支下标要加1
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						tuple.setEObject(sourceIndex.get(i));
+						tuple.setEStructuralFeature(r);
+						tuple.getPosition().addAll(locations);
+						addMayConflict.add(tuple);
 					}
 				}
 			}
 			// remain和addition求并集，最终是remain加到结果图中
 			remain.addAll(addition);
 
+			if (deleteOtherConflict.size() > 0) { // 如果满足，隐含了addMayConflict>0
+				// 冲突：删除了其他点-新加了当前点的多值引用
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				deleteOtherConflict.addAll(addMayConflict); // 求并集
+				conflict.getTuples().addAll(deleteOtherConflict);
+				conflict.setInformation("删除了其他点-新加了当前点的多值引用");
+				conflictList.add(conflict);
+				tupleList.addAll(deleteOtherConflict);
+			}
+
 			if (deleteMayConflict.size() > 0 && addMayConflict.size() > 0) {
 				// 冲突：删除了当前点-新加了当前点的多值引用
-				EObject conflictEObject = EcoreUtil.create(conflictEClass);
-				conflictEObject.eSet(lefts, deleteMayConflict);
-				conflictEObject.eSet(firstKind, ConflictKind.DELETE);
-				conflictEObject.eSet(rights, addMayConflict);
-				conflictEObject.eSet(secondKind, ConflictKind.ADD);
-				conflictEObject.eSet(information, "删除了当前点-新加了当前点的多值引用");
-				// 加到全局的conflictList中
-				conflictResourceEObjects.add(conflictEObject);
-				conflictResourceEObjects.addAll(deleteMayConflict);
-				conflictResourceEObjects.addAll(addMayConflict); // 需要去重吗？
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				deleteMayConflict.addAll(addMayConflict); // 求并集；可能之前的冲突也有了相同的addMayConflict
+				conflict.getTuples().addAll(deleteMayConflict);
+				conflict.setInformation("删除了当前点-新加了当前点的多值引用");
+				conflictList.add(conflict);
+				tupleList.addAll(deleteMayConflict);
 			}
 
 			if (deleteMayConflict.size() == 0) {
 				refEdgeMulti_MultiKeyMap.put(r, sourceIndex, remain);
 			}
-
 		}
 
 		/** RefEdgeAdd的合并结果 */
@@ -1140,41 +1117,43 @@ public class NWay {
 
 			List<RefEdge> list = entry.getValue();
 			List<EObject> finalTargetIndex = null;
+
 			boolean flag = true;
-			List<EObject> addMayConflict = new ArrayList<>();
+			boolean addConflictFlag = false;
+			List<Tuple> addMayConflict = new ArrayList<>();
+
 			for (int i = 0; i < size - 1; i++) {
 				RefEdge refEdge = list.get(i);
 				if (refEdge != null) {
 					List<EObject> addTargetIndex = refEdge.getTargetIndex();
 					// 分支下标要加1
 					if (addTargetIndex != null) {
-						EObject tupleEObject = EcoreUtil.create(tupleEClass);
-						tupleEObject.eSet(eObject, sourceIndex.get(i));
-						tupleEObject.eSet(description, "[branch" + (i + 1) + ";   reference: " + r.getName()
-								+ ";   eObject: " + addTargetIndex.get(i) + "]");
-						addMayConflict.add(tupleEObject);
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						tuple.setEObject(sourceIndex.get(i));
+						tuple.setEStructuralFeature(r);
+						// 单值引用，position为null吧~
+						addMayConflict.add(tuple);
 					}
 
 					if (flag == true) {
 						finalTargetIndex = addTargetIndex;
 						flag = false;
 					} else {
-						if (addTargetIndex != finalTargetIndex) {
-							// 冲突：新加点的单值引用矛盾
-							int len = addMayConflict.size();
-							EObject conflictEObject = EcoreUtil.create(conflictEClass);
-							conflictEObject.eSet(lefts, addMayConflict.subList(0, len - 1));
-							conflictEObject.eSet(firstKind, ConflictKind.ADD);
-							conflictEObject.eSet(rights, addMayConflict.subList(len - 1, len));
-							conflictEObject.eSet(secondKind, ConflictKind.ADD);
-							conflictEObject.eSet(information, "新加点的单值引用矛盾");
-							// 加到全局的conflictList中
-							conflictResourceEObjects.add(conflictEObject);
-							conflictResourceEObjects.addAll(addMayConflict);
-							break;
+						if (addConflictFlag == false && addTargetIndex != finalTargetIndex) {
+							addConflictFlag = true;
 						}
 					}
 				}
+			}
+
+			if (addConflictFlag == true) {
+				// 冲突：新加点的单值引用矛盾
+				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+				conflict.getTuples().addAll(addMayConflict);
+				conflict.setInformation("新加点的单值引用矛盾");
+				conflictList.add(conflict);
+				tupleList.addAll(addMayConflict);
 			}
 
 			refEdge_MultiKeyMap.put(r, sourceIndex, finalTargetIndex);
@@ -1233,16 +1212,16 @@ public class NWay {
 
 				if (a.isMany() == false) { // 单值属性
 					System.out.println("单值属性: " + a);
-					Object target = valEdge_MultiKeyMap.get(a, sourceIndex);
-					System.out.println("target: " + target);
-					e.eSet(a, target);
+					Object eSetTarget = valEdge_MultiKeyMap.get(a, sourceIndex);
+					System.out.println("target: " + eSetTarget);
+					e.eSet(a, eSetTarget);
 
 				} else { // 多值属性
 					System.out.println("多值属性：" + a);
-					List<Object> targets = (List<Object>) valEdgeMulti_MultiKeyMap.get(a, sourceIndex);
+					List<Object> eSetTargets = (List<Object>) valEdgeMulti_MultiKeyMap.get(a, sourceIndex);
 
-					if (targets.size() <= 1 || !needOrderSet.contains(a.getName())) {
-						e.eSet(a, targets);
+					if (eSetTargets.size() <= 1 || !needOrderSet.contains(a.getName())) {
+						e.eSet(a, eSetTargets);
 
 					} else {
 						List<Object> finalList = new ArrayList<>();
@@ -1283,13 +1262,13 @@ public class NWay {
 
 						}
 
-						int nodeSize = targets.size();
+						int nodeSize = eSetTargets.size();
 						TopoGraph g = new TopoGraph(nodeSize);
 
 						for (int i = 0; i < nodeSize - 1; i++) {
-							Object x = targets.get(i);
+							Object x = eSetTargets.get(i);
 							for (int j = i + 1; j < nodeSize; j++) {
-								Object y = targets.get(j);
+								Object y = eSetTargets.get(j);
 								Order order = Order.unkown;
 								if (valEdgeMulti != null) {
 									order = computeOrd(baseFlag, branchFlag, x, y);
@@ -1308,7 +1287,7 @@ public class NWay {
 						try {
 							List<Integer> topologicalSort = g.topologicalSort();
 							for (Integer i : topologicalSort) {
-								finalList.add(targets.get(i));
+								finalList.add(eSetTargets.get(i));
 							}
 						} catch (Exception e1) {
 							e1.printStackTrace();
@@ -1470,15 +1449,38 @@ public class NWay {
 		}
 		System.out.println("已写入到合并文件");
 
+		// 设置根
+		Conflicts conflicts = ConflictFactory.eINSTANCE.createConflicts();
+		conflicts.getConflicts().addAll(conflictList);
+		conflicts.setBaseURI(baseResource.getURI().toString());
+
+		List<String> branchURIString = new ArrayList<>();
+		Set<Integer> set = new HashSet<>();
+		tupleList.forEach(t -> {
+			set.add(t.getBranch());
+		});
+		TreeSet<Integer> treeSet = new TreeSet<>(set);
+		treeSet.forEach(t -> {
+			branchURIString.add(resourceList.get(t).getURI().toString());
+		});
+
+		conflicts.getBranchURIs().addAll(branchURIString);
+
+		// 加到冲突文件
+		conflictResourceEObjects.add(conflicts);
+		conflictResourceEObjects.addAll(conflictList);
+		conflictResourceEObjects.addAll(tupleList);
+
 		List<EObject> roots2 = conflictResourceEObjects.stream().filter(n -> n.eContainer() == null)
 				.collect(Collectors.toList());
 		conflictResource.getContents().addAll(roots2);
+
 		try {
 			conflictResource.save(null);
 		} catch (IOException e1) {
 			e1.printStackTrace();
 		}
-		System.out.println("已写入到冲突文件");
+		System.out.println("\n\n\n已写入到冲突文件");
 
 		System.out.println("done");
 

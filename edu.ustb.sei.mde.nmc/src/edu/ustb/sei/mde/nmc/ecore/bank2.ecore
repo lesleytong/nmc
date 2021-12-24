@@ -5,33 +5,32 @@
   <eClassifiers xsi:type="ecore:EEnum" name="Boolean" instanceClassName="java.lang.Boolean"/>
   <eClassifiers xsi:type="ecore:EEnum" name="Date" instanceClassName="java.util.Date"/>
   <eClassifiers xsi:type="ecore:EClass" name="Bank">
+    <eOperations name="operation">
+      <eParameters name="p1" eType="#//String"/>
+      <eParameters name="p2" eType="#//String"/>
+      <eParameters name="p3" eType="#//String"/>
+    </eOperations>
     <eStructuralFeatures xsi:type="ecore:EReference" name="accounts" upperBound="-1"
-        eType="#//Account"/>
+        eType="#//Account" containment="true"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Account">
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="id" eType="#//String"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="status" eType="#//Boolean"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="date" eType="#//Date"/>
-    <eStructuralFeatures xsi:type="ecore:EReference" name="transactions" upperBound="-1"
-        eType="#//Transaction"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Person">
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="id" eType="#//String"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="#//String"/>
     <eStructuralFeatures xsi:type="ecore:EReference" name="accounts" upperBound="-1"
-        eType="#//Account"/>
+        eType="#//Account" containment="true"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Company">
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="id" eType="#//String"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="#//String"/>
     <eStructuralFeatures xsi:type="ecore:EReference" name="accounts" upperBound="-1"
-        eType="#//Account"/>
+        eType="#//Account" containment="true"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="SavingAccount" eSuperTypes="#//Account">
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="#//String"/>
-  </eClassifiers>
-  <eClassifiers xsi:type="ecore:EClass" name="Transaction">
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="id" eType="#//String"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="#//String"/>
   </eClassifiers>
 </ecore:EPackage>

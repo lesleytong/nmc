@@ -3,8 +3,13 @@
     xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="bank" nsURI="http:///bank" nsPrefix="bank">
   <eClassifiers xsi:type="ecore:EEnum" name="String" instanceClassName="java.lang.String"/>
   <eClassifiers xsi:type="ecore:EClass" name="Bank">
+    <eOperations name="operation">
+      <eParameters name="p3" eType="#//String"/>
+      <eParameters name="p1" eType="#//String"/>
+      <eParameters name="p2" eType="#//String"/>
+    </eOperations>
     <eStructuralFeatures xsi:type="ecore:EReference" name="accounts" upperBound="-1"
-        eType="#//Account"/>
+        eType="#//Account" containment="true"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Account">
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="id" eType="#//String"/>
@@ -13,7 +18,7 @@
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="id" eType="#//String"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="#//String"/>
     <eStructuralFeatures xsi:type="ecore:EReference" name="accounts" upperBound="-1"
-        eType="#//Account"/>
+        eType="#//Account" containment="true"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Person" eSuperTypes="#//Client"/>
   <eClassifiers xsi:type="ecore:EClass" name="Company" eSuperTypes="#//Client"/>
