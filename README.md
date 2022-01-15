@@ -1,10 +1,10 @@
 # nmc
+![version](https://img.shields.io/badge/version-1.0-blue)
+![contributors](https://img.shields.io/badge/contributors-3-yellowgreen)
+![dependencies](https://img.shields.io/badge/repo_size-1.74MB-orange)
 
-[![NPM Version][npm-image]][npm-url]
-[![Build Status][travis-image]][travis-url]
-[![Downloads Stats][npm-downloads]][npm-url]
 
-用一两段话介绍这个项目以及它能做些什么。
+This tool is used for n-way model merging. It considers the original and all branch models at the same time, ranther than handling them iteratively, to match similar elements, compute the differences, detect conflicts, and merge all conflict-free differences. It also properly handles the ordered sets in models.
 
 ![](https://github.com/dbader/readme-template/raw/master/header.png)
 
