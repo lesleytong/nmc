@@ -4,9 +4,11 @@
 ![dependencies](https://img.shields.io/badge/repo_size-1.74MB-orange)
 
 
-This tool is used for n-way model merging. It considers the original and all branch models at the same time, ranther than handling them iteratively, to match similar elements, compute the differences, detect conflicts, and merge all conflict-free differences. It also properly handles the ordered sets in models.
+This tool is used for n-way model merging. It considers the base and all branch models at the same time, ranther than handling them iteratively, to match similar elements, compute the differences, detect conflicts, and merge all conflict-free differences. It also properly handles the ordered sets in models.
 
-![](https://github.com/dbader/readme-template/raw/master/header.png)
+<div align=center>
+<img width="500" alt="1" src="https://user-images.githubusercontent.com/26463428/149732685-dbbb7432-7029-499c-8673-f98d79bbfcd6.png">
+</div>
 
 ## Getting Started
 
