@@ -25,7 +25,7 @@ First, start Eclipse and click File -> Import -> Git -> Projects from Git -> Clo
 <img width="379" alt="2" src="https://user-images.githubusercontent.com/26463428/149894475-eb682bec-998f-45e7-91c3-bfc74c3dbfed.png">
 </div>
 
-Second, copy the uri of this repository and fill in the username and password.
+Second, copy the uri of this repository and fill in the username and password of GitHub.
 
 <div align=center>
 <img width="300" alt="4" src="https://user-images.githubusercontent.com/26463428/149895620-5238f0d1-1dfb-4d92-86a0-eee80a8fab4d.png">
