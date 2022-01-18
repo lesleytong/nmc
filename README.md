@@ -18,10 +18,22 @@ This tool is used for n-way model merging. It considers the base and all branch 
 
 ### Installation
 
-```
-git clone https://github.com/lesleytong/nmc.git
-```
+First, start Eclipse and click File -> Import -> Git -> Projects from Git -> Clone URI.
+
+<div align=center>
+<img width="381" alt="1" src="https://user-images.githubusercontent.com/26463428/149894474-7f9796e5-62a0-481b-ac9d-7e8beb7828d4.png">
+<img width="379" alt="2" src="https://user-images.githubusercontent.com/26463428/149894475-eb682bec-998f-45e7-91c3-bfc74c3dbfed.png">
+</div>
+
+Second, copy the uri of this repository and fill in the username and password.
+
+<div align=center>
+<img width="300" alt="4" src="https://user-images.githubusercontent.com/26463428/149895620-5238f0d1-1dfb-4d92-86a0-eee80a8fab4d.png">
+<img width="378" alt="3" src="https://user-images.githubusercontent.com/26463428/149895329-c220dd86-ff42-4af7-aca2-f0b7adecd4b8.png">
+</div>
+
 Then go to edu.ustb.sei.mde.nmc/src/edu/ustb/sei/mde/nmc/test/, and run Test* as Java Application.
+
 
 ### Usage example
 
