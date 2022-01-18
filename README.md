@@ -21,6 +21,7 @@ This tool is used for n-way model merging. It considers the base and all branch 
 ```
 git clone https://github.com/lesleytong/nmc.git
 ```
+Then go to edu.ustb.sei.mde.nmc/src/edu/ustb/sei/mde/nmc/test/, and run Test* as Java Application.
 
 ### Usage example
 
