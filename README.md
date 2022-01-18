@@ -21,8 +21,8 @@ This tool is used for n-way model merging. It considers the base and all branch 
 First, start Eclipse and click File -> Import -> Git -> Projects from Git -> Clone URI.
 
 <div align=center>
-<img width="381" alt="1" src="https://user-images.githubusercontent.com/26463428/149894474-7f9796e5-62a0-481b-ac9d-7e8beb7828d4.png">
-<img width="379" alt="2" src="https://user-images.githubusercontent.com/26463428/149894475-eb682bec-998f-45e7-91c3-bfc74c3dbfed.png">
+<img width="300" alt="1" src="https://user-images.githubusercontent.com/26463428/149894474-7f9796e5-62a0-481b-ac9d-7e8beb7828d4.png">
+<img width="300" alt="2" src="https://user-images.githubusercontent.com/26463428/149894475-eb682bec-998f-45e7-91c3-bfc74c3dbfed.png">
 </div>
 
 Second, copy the uri of this repository and fill in the username and password of GitHub.
