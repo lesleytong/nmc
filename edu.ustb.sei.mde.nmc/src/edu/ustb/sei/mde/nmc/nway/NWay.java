@@ -2,17 +2,16 @@ package edu.ustb.sei.mde.nmc.nway;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
@@ -20,12 +19,20 @@ import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EReference;
-import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
-import org.eclipse.emf.ecore.xmi.XMLResource;
-import org.eclipse.emf.ecore.xmi.impl.XMLInfoImpl;
-import org.eclipse.emf.ecore.xmi.impl.XMLMapImpl;
+import org.eclipse.uml2.uml.AggregationKind;
+import org.eclipse.uml2.uml.InteractionOperand;
+import org.eclipse.uml2.uml.UMLFactory;
+import org.eclipse.uml2.uml.internal.impl.GeneralizationImpl;
+import org.eclipse.uml2.uml.internal.impl.InteractionConstraintImpl;
+import org.eclipse.uml2.uml.internal.impl.InteractionFragmentImpl;
+import org.eclipse.uml2.uml.internal.impl.InteractionOperandImpl;
+import org.eclipse.uml2.uml.internal.impl.LiteralSpecificationImpl;
+import org.eclipse.uml2.uml.internal.impl.MessageOccurrenceSpecificationImpl;
+import org.eclipse.uml2.uml.internal.impl.ModelImpl;
+import org.eclipse.uml2.uml.internal.impl.ParameterImpl;
+import org.eclipse.uml2.uml.internal.impl.PropertyImpl;
 
 import edu.ustb.sei.mde.conflict.Conflict;
 import edu.ustb.sei.mde.conflict.ConflictFactory;
@@ -45,6 +52,9 @@ public class NWay {
 
 	public static void nWay(List<Resource> resourceList, Map<Resource, Integer> resourceMap, EMFCompare build,
 			Set<String> needOrderSet, Resource m1Resource, Resource conflictResource) {
+		
+		long currentTime = System.currentTimeMillis();
+		
 		size = resourceList.size();
 		Comparison comparison = null;
 		IComparisonScope scope = null;
@@ -600,6 +610,7 @@ public class NWay {
 
 			if (deleteMayConflict.size() == 0) {
 				EObject create = EcoreUtil.create(finalEClass);
+							
 				// 更新nodesIndexMap
 				List<EObject> sourceIndex = nodesIndexMap.get(baseEObject);
 				nodesIndexMap.put(create, sourceIndex);
@@ -651,7 +662,9 @@ public class NWay {
 				tupleList.addAll(addMayConflict);
 			}
 
+			
 			EObject create = EcoreUtil.create(finalType);
+			
 			// 更新nodesIndexMap
 			List<EObject> sourceIndex = nodesIndexMap.get(key);
 			nodesIndexMap.put(create, sourceIndex);
@@ -1196,16 +1209,29 @@ public class NWay {
 			remain.addAll(addition); // 这样能转换成List
 			refEdgeMulti_MultiKeyMap.put(r, key.getSourceIndex(), remain);
 		}
-
+		
+		
+		// lyt
+		EObject tmpEObject = null;
+		EAttribute tmpAttribute = null;
+		Object tmp = null;
+		boolean flag = true;
+		boolean flag2 = true;
+		
 		/** 设置结果图中的属性和关联 */
 		System.out.println("\n\n\n**********************设置结果图中的属性和关联*************************");
 		for (EObject e : m1ResourceEObjects) {
 			List<EObject> sourceIndex = nodesIndexMap.get(e);
 			EClass eClass = e.eClass();
 			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
-
+			
+							
 			for (EAttribute a : eClass.getEAllAttributes()) {
-
+				
+				if(a.getName().equals("isComposite")) {
+					continue;
+				}
+															
 				if (a.isChangeable() == false) {
 					continue;
 				}
@@ -1215,6 +1241,44 @@ public class NWay {
 					Object eSetTarget = valEdge_MultiKeyMap.get(a, sourceIndex);
 					System.out.println("target: " + eSetTarget);
 					e.eSet(a, eSetTarget);
+					
+					// lyt
+					if(e instanceof PropertyImpl ) {
+						
+						for(EAttribute attribute : eClass.getEAllAttributes()) {
+							if(attribute.getName().equals("name")) {
+								if(e.eGet(attribute).equals("routePlans")) {
+									if(flag == true) {
+										tmpEObject = e;
+										System.out.println(e.eGet(attribute));
+										flag = false;
+									}
+								}
+							}
+							
+							if(flag ==false && flag2==true && a.getName().equals("aggregation")) {
+								tmpAttribute = a;
+								tmp = e.eGet(a);
+								System.out.println(e.eGet(a));
+								flag2 = false;
+							}
+						}
+
+					}
+					
+					if(flag==false && flag2==false && tmpEObject.eGet(tmpAttribute).equals(tmp) == false) {
+						System.out.println("=============");
+						System.out.println(e);
+						System.out.println(a.getName());
+						System.out.println(e.eGet(a));
+						System.out.println();
+						System.out.println(tmp);
+						System.out.println(tmpEObject.eGet(tmpAttribute));
+						tmp = tmpEObject.eGet(tmpAttribute);	// 暂时
+						System.out.println("============");
+					}
+					
+					
 
 				} else { // 多值属性
 					System.out.println("多值属性：" + a);
@@ -1295,6 +1359,7 @@ public class NWay {
 
 						// 最后才eSet
 						e.eSet(a, finalList);
+						
 					}
 
 				}
@@ -1302,29 +1367,81 @@ public class NWay {
 
 			// 在设置当前节点的引用时，可能target的属性还没设置，但不影响最终的结果
 			// 所以可以把下面处理引用的放到这里，遍历一次即可
-
+			
 		}
-
+		
+		
+		// lyt
+		System.out.println("========================");
+		for(EObject e : m1ResourceEObjects) {
+			// lyt
+			if(e instanceof PropertyImpl) {
+				EClass eClass = e.eClass();
+				for(EAttribute a : eClass.getEAllAttributes()) {
+					if(a.getName().equals("name")) {
+						if(e.eGet(a).equals("routePlans")) {
+							System.out.println(e);
+							for(EAttribute attribute : eClass.getEAllAttributes()) {
+								if(attribute.getName().equals("aggregation")) {
+									System.out.println(e.eGet(attribute));
+									System.out.println();
+								}
+							}
+						}
+					}
+				}
+			}
+		}		
+					
+		
+		// first
 		System.out.println("------------------------设置引用-----------------------------");
 		for (EObject e : m1ResourceEObjects) {
+			
+			// uml
+			if(e instanceof LiteralSpecificationImpl) {
+				continue;
+			}									
+			
+			// sequence
+			if(e instanceof InteractionConstraintImpl) {
+				continue;
+			}
+												
 			List<EObject> sourceIndex = nodesIndexMap.get(e);
 			EClass eClass = e.eClass();
 			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
-
+								
 			for (EReference r : eClass.getEAllReferences()) {
+								
 				// eType在设置时，eGenericType自动被设置了
 				if (r.isChangeable() == false || r.getName().equals("eGenericType")
 						|| r.getName().equals("eGenericSuperTypes")) {
 					continue;
+				}		
+				
+				// 先设置不需要排序的引用，跳过需要排序的引用
+				if(needOrderSet.contains(r) == true) {
+					continue;
 				}
-
+												
 				if (r.isMany() == false) { // 单值引用
+															
 					System.out.println("单值引用：" + r);
 					List<EObject> targetIndex = refEdge_MultiKeyMap.get(r, sourceIndex);
 					EObject node = nodesReverseIndexMap.get(targetIndex);
-					e.eSet(r, node);
-
+									
+//					e.eSet(r, node);
+					
+					try {
+						e.eSet(r, node);
+					} catch (Exception e2) {
+						System.out.println();
+						// class diagram: opposite
+					}
+					
 				} else { // 多值引用
+															
 					System.out.println("多值引用：" + r);
 
 					List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);
@@ -1338,106 +1455,159 @@ public class NWay {
 							}
 						}
 
-					} else {
-						// initialize
-						List<List<EObject>> mergeIndex = new ArrayList<>();
+					} 
+										
+//					e.eSet(r, finalList);	
+					
+			
+					try {
+						e.eSet(r, finalList);	
+					} catch (UnsupportedOperationException e2) {
+						// EnumerationLiteral
+					}
+				}				
+			}
+		}
+		
+		
+		// lyt: second 
+		for (EObject e : m1ResourceEObjects) {
+						
+			// uml
+			if(e instanceof LiteralSpecificationImpl) {
+				continue;
+			}				
+			
+			// sequence
+			if(e instanceof InteractionConstraintImpl) {
+				continue;
+			}
+						
+			List<EObject> sourceIndex = nodesIndexMap.get(e);
+			EClass eClass = e.eClass();
+			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
+							
+			for (EReference r : eClass.getEAllReferences()) {
+								
+				if(r.isMany() == false) {
+					continue;
+				}
+				
+				// 再设置需要排序的多值引用
+				if(needOrderSet.contains(r.getName()) == false) {
+					continue;
+				}
+				
+				// eType在设置时，eGenericType自动被设置了
+				if (r.isChangeable() == false || r.getName().equals("eGenericType")
+						|| r.getName().equals("eGenericSuperTypes")) {
+					continue;
+				}		
+											
+				System.out.println("多值引用：" + r);
 
-						// 由于不知道e是否为新加的点
-						RefEdgeMulti refEdgeMulti = refEdgeMultiHelper.get(r, sourceIndex);
-						RefEdgeMulti refEdgeMultiAdd = null;
-						Map<Object, Integer> baseFlag = new HashMap<>();
-						MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
+				List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);
+				List<EObject> finalList = new ArrayList<>();
 
-						if (refEdgeMulti != null) {
-							for (int i = 0; i < refEdgeMulti.getTargetsIndex().size(); i++) {
-								List<EObject> index = refEdgeMulti.getTargetsIndex().get(i);
-								baseFlag.put(index, i);
-							}
+				// initialize
+				List<List<EObject>> mergeIndex = new ArrayList<>();
 
-							List<RefEdgeMulti> list = refEdgeMultiMatchGroupMap.get(refEdgeMulti);
-							for (int i = 0; i < size - 1; i++) {
-								RefEdgeMulti refEdgeMulti2 = list.get(i); // 不可能出现null吧
-								for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
-									List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
-									branchFlag.put(i, index, j);
-								}
-							}
+				// 由于不知道e是否为新加的点
+				RefEdgeMulti refEdgeMulti = refEdgeMultiHelper.get(r, sourceIndex);
+				RefEdgeMulti refEdgeMultiAdd = null;
+				Map<Object, Integer> baseFlag = new HashMap<>();
+				MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
 
-						} else {
-							refEdgeMultiAdd = refEdgeMultiAddHelper.get(r, sourceIndex);
-							List<RefEdgeMulti> list = refEdgeMultiAddMatchGroupMap.get(refEdgeMultiAdd);
-							for (int i = 0; i < size - 1; i++) {
-								RefEdgeMulti refEdgeMulti2 = list.get(i); // 新加的列表，可能出现null
-								if (refEdgeMulti2 != null) {
-									for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
-										List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
-										branchFlag.put(i, index, j);
-									}
-								}
-							}
-						}
+				if (refEdgeMulti != null) {
+					for (int i = 0; i < refEdgeMulti.getTargetsIndex().size(); i++) {
+						List<EObject> index = refEdgeMulti.getTargetsIndex().get(i);
+						baseFlag.put(index, i);
+					}
 
-						int nodeSize = targetsIndex.size();
-						TopoGraph g = new TopoGraph(nodeSize);
-
-						for (int i = 0; i < nodeSize - 1; i++) {
-							List<EObject> xIndex = targetsIndex.get(i);
-							for (int j = i + 1; j < nodeSize; j++) {
-								List<EObject> yIndex = targetsIndex.get(j);
-								Order order = Order.unkown;
-								if (refEdgeMulti != null) {
-									order = computeOrd(baseFlag, branchFlag, xIndex, yIndex);
-								} else if (refEdgeMultiAdd != null) {
-									order = computeOrd(null, branchFlag, xIndex, yIndex);
-								}
-								if (order == order.less) {
-									g.addEdge(i, j);
-								} else if (order == order.greater) {
-									g.addEdge(j, i);
-								}
-							}
-						}
-
-						// 或许还要传conflicts
-						try {
-							List<Integer> topologicalSort = g.topologicalSort();
-							for (Integer i : topologicalSort) {
-								mergeIndex.add(targetsIndex.get(i));
-							}
-							for (List<EObject> nodeIndex : mergeIndex) {
-								EObject node = nodesReverseIndexMap.get(nodeIndex);
-								finalList.add(node);
-							}
-
-						} catch (Exception e1) {
-							e1.printStackTrace();
+					List<RefEdgeMulti> list = refEdgeMultiMatchGroupMap.get(refEdgeMulti);
+					for (int i = 0; i < size - 1; i++) {
+						RefEdgeMulti refEdgeMulti2 = list.get(i); // 不可能出现null吧
+						for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
+							List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
+							branchFlag.put(i, index, j);
 						}
 					}
 
-					// 最后才eSet
-					e.eSet(r, finalList);
-
+				} else {
+					refEdgeMultiAdd = refEdgeMultiAddHelper.get(r, sourceIndex);
+					List<RefEdgeMulti> list = refEdgeMultiAddMatchGroupMap.get(refEdgeMultiAdd);
+					for (int i = 0; i < size - 1; i++) {
+						RefEdgeMulti refEdgeMulti2 = list.get(i); // 新加的列表，可能出现null
+						if (refEdgeMulti2 != null) {
+							for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
+								List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
+								branchFlag.put(i, index, j);
+							}
+						}
+					}
 				}
-			}
 
+				int nodeSize = targetsIndex.size();
+				TopoGraph g = new TopoGraph(nodeSize);
+
+				for (int i = 0; i < nodeSize - 1; i++) {
+					List<EObject> xIndex = targetsIndex.get(i);
+					for (int j = i + 1; j < nodeSize; j++) {
+						List<EObject> yIndex = targetsIndex.get(j);
+						Order order = Order.unkown;
+						if (refEdgeMulti != null) {
+							order = computeOrd(baseFlag, branchFlag, xIndex, yIndex);
+						} else if (refEdgeMultiAdd != null) {
+							order = computeOrd(null, branchFlag, xIndex, yIndex);
+						}
+						if (order == order.less) {
+							g.addEdge(i, j);
+						} else if (order == order.greater) {
+							g.addEdge(j, i);
+						}
+					}
+				}
+				
+				// 或许还要传conflicts
+				try {
+					List<Integer> topologicalSort = g.topologicalSort();
+					for (Integer i : topologicalSort) {
+						mergeIndex.add(targetsIndex.get(i));
+					}
+					for (List<EObject> nodeIndex : mergeIndex) {
+						EObject node = nodesReverseIndexMap.get(nodeIndex);
+						finalList.add(node);
+					}
+												
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+									
+				e.eSet(r, finalList);
+				
+			}
+		
 		}
+		
+		System.out.println("\n\n耗时：" + (System.currentTimeMillis() - currentTime) + "ms");
 
 		System.out.println("\n\n\n*****************resourceNodes************************");
 		m1ResourceEObjects.forEach(e -> {
-			System.out.println("e: " + e);
 			EClass eClass = e.eClass();
-			eClass.getEAllReferences().forEach(r -> {
-				if (r.isMany() == false) {
-					System.out.print("单值引用");
-				} else {
-					System.out.print("多值引用");
+			
+			for(EAttribute a : eClass.getEAllAttributes()) {
+				// lyt
+				if(a.getName().equals("aggregation")) {
+					AggregationKind cur = (AggregationKind) e.eGet(a);
+					if(cur.name().equals("SHARED_LITERAL") ) {
+						System.out.println(e);
+						System.out.println(cur.name());
+						System.out.println();
+					}
 				}
-				System.out.println(r.getName());
-				System.out.println(e.eGet(r));
-			});
-			System.out.println("---------------------\n");
+			}
 		});
-
+							
 		/** 写入到文件 */
 		List<EObject> roots = m1ResourceEObjects.stream().filter(n -> n.eContainer() == null)
 				.collect(Collectors.toList());
