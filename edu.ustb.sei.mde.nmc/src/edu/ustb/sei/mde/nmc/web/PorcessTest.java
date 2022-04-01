@@ -16,7 +16,11 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.eclipse.jgit.api.*;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.transport.*;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
@@ -187,7 +191,9 @@ public class PorcessTest {
     	
     	
     	// 调用多向合并方法
-    	Unzipper.unzip();
+//    	Unzipper.unzip();
+        
+        // PENDING: 根据master目录下的模型文件名，找到其它目录下对应的模型文件，进行多向合并。
     	
     	
     	
@@ -216,8 +222,12 @@ public class PorcessTest {
 
 
         // 成员lyt查看远程项目的master分支是否有更新
-
-
+        String projectId = "30";
+        String localPath = "C:\\Users\\10242\\Desktop\\newpp";
+        checkOut(localPath, "master");
+        checkUpdate("lyt", "lyt12345", projectId, localPath);
+        
+        
         // 成员lyt需要频繁地pull远程项目的master分支，同步本地的master分支。
 //        String localPath = "C:\\Users\\10242\\Desktop\\newpp";
 //        checkOut(localPath, "master");
@@ -233,6 +243,23 @@ public class PorcessTest {
 //        pushToRemote("lyt", "lyt12345", localPath, "branch-lyt", message, remotePath, true);
 
 
+    }
+    
+    public static void checkUpdate(String username, String password, String projectId, String localPath) throws IOException {
+        String token = signInTest(username, password);
+
+        Path path = Paths.get(localPath);
+        Git git = Git.open(path.toFile());
+        Repository repository = git.getRepository();
+
+        ObjectId lastCommitId = repository.resolve(Constants.HEAD);
+        RevWalk revWalk = new RevWalk(repository);
+        RevCommit commit = revWalk.parseCommit(lastCommitId);
+        int time = commit.getCommitTime();
+        System.out.println("last CommitTime: " + time);
+
+        String res = gitGet("project/checkUpdate"+ "?time=" + time + "&id=" + projectId + "&token=" + token,200);
+        System.out.println("\n\n" + res);
     }
 
     public static void realTime(String username, String password, String projectId) throws IOException, URISyntaxException {

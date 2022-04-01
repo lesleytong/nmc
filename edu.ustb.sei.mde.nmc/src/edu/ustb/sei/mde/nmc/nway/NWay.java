@@ -24,6 +24,8 @@ import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.uml2.uml.AggregationKind;
 import org.eclipse.uml2.uml.InteractionOperand;
 import org.eclipse.uml2.uml.UMLFactory;
+import org.eclipse.uml2.uml.internal.impl.BehaviorExecutionSpecificationImpl;
+import org.eclipse.uml2.uml.internal.impl.GeneralOrderingImpl;
 import org.eclipse.uml2.uml.internal.impl.GeneralizationImpl;
 import org.eclipse.uml2.uml.internal.impl.InteractionConstraintImpl;
 import org.eclipse.uml2.uml.internal.impl.InteractionFragmentImpl;
@@ -1209,15 +1211,7 @@ public class NWay {
 			remain.addAll(addition); // 这样能转换成List
 			refEdgeMulti_MultiKeyMap.put(r, key.getSourceIndex(), remain);
 		}
-		
-		
-		// lyt
-		EObject tmpEObject = null;
-		EAttribute tmpAttribute = null;
-		Object tmp = null;
-		boolean flag = true;
-		boolean flag2 = true;
-		
+				
 		/** 设置结果图中的属性和关联 */
 		System.out.println("\n\n\n**********************设置结果图中的属性和关联*************************");
 		for (EObject e : m1ResourceEObjects) {
@@ -1227,7 +1221,7 @@ public class NWay {
 			
 							
 			for (EAttribute a : eClass.getEAllAttributes()) {
-				
+								
 				if(a.getName().equals("isComposite")) {
 					continue;
 				}
@@ -1242,44 +1236,6 @@ public class NWay {
 					System.out.println("target: " + eSetTarget);
 					e.eSet(a, eSetTarget);
 					
-					// lyt
-					if(e instanceof PropertyImpl ) {
-						
-						for(EAttribute attribute : eClass.getEAllAttributes()) {
-							if(attribute.getName().equals("name")) {
-								if(e.eGet(attribute).equals("routePlans")) {
-									if(flag == true) {
-										tmpEObject = e;
-										System.out.println(e.eGet(attribute));
-										flag = false;
-									}
-								}
-							}
-							
-							if(flag ==false && flag2==true && a.getName().equals("aggregation")) {
-								tmpAttribute = a;
-								tmp = e.eGet(a);
-								System.out.println(e.eGet(a));
-								flag2 = false;
-							}
-						}
-
-					}
-					
-					if(flag==false && flag2==false && tmpEObject.eGet(tmpAttribute).equals(tmp) == false) {
-						System.out.println("=============");
-						System.out.println(e);
-						System.out.println(a.getName());
-						System.out.println(e.eGet(a));
-						System.out.println();
-						System.out.println(tmp);
-						System.out.println(tmpEObject.eGet(tmpAttribute));
-						tmp = tmpEObject.eGet(tmpAttribute);	// 暂时
-						System.out.println("============");
-					}
-					
-					
-
 				} else { // 多值属性
 					System.out.println("多值属性：" + a);
 					List<Object> eSetTargets = (List<Object>) valEdgeMulti_MultiKeyMap.get(a, sourceIndex);
@@ -1369,31 +1325,7 @@ public class NWay {
 			// 所以可以把下面处理引用的放到这里，遍历一次即可
 			
 		}
-		
-		
-		// lyt
-		System.out.println("========================");
-		for(EObject e : m1ResourceEObjects) {
-			// lyt
-			if(e instanceof PropertyImpl) {
-				EClass eClass = e.eClass();
-				for(EAttribute a : eClass.getEAllAttributes()) {
-					if(a.getName().equals("name")) {
-						if(e.eGet(a).equals("routePlans")) {
-							System.out.println(e);
-							for(EAttribute attribute : eClass.getEAllAttributes()) {
-								if(attribute.getName().equals("aggregation")) {
-									System.out.println(e.eGet(attribute));
-									System.out.println();
-								}
-							}
-						}
-					}
-				}
-			}
-		}		
-					
-		
+							
 		// first
 		System.out.println("------------------------设置引用-----------------------------");
 		for (EObject e : m1ResourceEObjects) {
@@ -1413,7 +1345,7 @@ public class NWay {
 			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
 								
 			for (EReference r : eClass.getEAllReferences()) {
-								
+																
 				// eType在设置时，eGenericType自动被设置了
 				if (r.isChangeable() == false || r.getName().equals("eGenericType")
 						|| r.getName().equals("eGenericSuperTypes")) {
@@ -1443,7 +1375,7 @@ public class NWay {
 				} else { // 多值引用
 															
 					System.out.println("多值引用：" + r);
-
+									
 					List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);
 					List<EObject> finalList = new ArrayList<>();
 
@@ -1458,13 +1390,28 @@ public class NWay {
 					} 
 										
 //					e.eSet(r, finalList);	
-					
-			
+								
 					try {
 						e.eSet(r, finalList);	
 					} catch (UnsupportedOperationException e2) {
 						// EnumerationLiteral
 					}
+					
+					// lyt
+					if (e instanceof MessageOccurrenceSpecificationImpl) {
+						if (r.getName().equals("toAfter")) {
+							List<GeneralOrderingImpl> list = (List<GeneralOrderingImpl>) e.eGet(r);
+							if(list!=null && list.size()>0) {
+								for(GeneralOrderingImpl g1 : list) {
+									if(g1.getName()!=null) {
+										System.out.println(g1);
+									}
+								}
+							}
+						}
+					}
+					
+					
 				}				
 			}
 		}
@@ -1488,7 +1435,7 @@ public class NWay {
 			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
 							
 			for (EReference r : eClass.getEAllReferences()) {
-								
+																								
 				if(r.isMany() == false) {
 					continue;
 				}
@@ -1582,9 +1529,31 @@ public class NWay {
 				} catch (Exception e1) {
 					e1.printStackTrace();
 				}
+				
+
 									
 				e.eSet(r, finalList);
 				
+
+				
+				// lyt
+				if(e instanceof BehaviorExecutionSpecificationImpl) {
+					if (r.getName().equals("generalOrdering")) {
+						List<GeneralOrderingImpl> list = (List<GeneralOrderingImpl>) e.eGet(r);
+						if(list.size()>0) {
+							for(GeneralOrderingImpl gen : list) {
+								if(gen.getName()!=null && gen.getName().equals("WIYHKF")) {
+									System.out.println(e);
+									System.out.println(r.getName());
+									System.out.println(list);
+									System.out.println(gen);
+									System.out.println();
+								}
+							}
+						}
+					}					
+				}
+																	
 			}
 		
 		}
@@ -1595,17 +1564,6 @@ public class NWay {
 		m1ResourceEObjects.forEach(e -> {
 			EClass eClass = e.eClass();
 			
-			for(EAttribute a : eClass.getEAllAttributes()) {
-				// lyt
-				if(a.getName().equals("aggregation")) {
-					AggregationKind cur = (AggregationKind) e.eGet(a);
-					if(cur.name().equals("SHARED_LITERAL") ) {
-						System.out.println(e);
-						System.out.println(cur.name());
-						System.out.println();
-					}
-				}
-			}
 		});
 							
 		/** 写入到文件 */
