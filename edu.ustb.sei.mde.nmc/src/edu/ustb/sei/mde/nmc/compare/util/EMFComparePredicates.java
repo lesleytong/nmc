@@ -2,6 +2,9 @@ package edu.ustb.sei.mde.nmc.compare.util;
 
 import org.eclipse.emf.ecore.EGenericType;
 import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.EStructuralFeature;
+import org.eclipse.emf.ecore.impl.EDataTypeImpl;
+import org.eclipse.emf.ecore.impl.EEnumImpl;
 
 import com.google.common.base.Predicate;
 
@@ -24,7 +27,16 @@ public final class EMFComparePredicates {
 	public static final Predicate<? super EObject> IS_EGENERIC_TYPE_WITHOUT_PARAMETERS = new Predicate<EObject>() {
 		public boolean apply(EObject input) {
 			final boolean isEGenericWithoutParams;
-			if (input instanceof EGenericType && ((EGenericType)input).getETypeArguments().isEmpty()) {
+			if (input instanceof EGenericType && ((EGenericType)input).getETypeArguments().isEmpty()) {		
+				
+//				// lyt: test
+//				EStructuralFeature eClassifier = input.eClass().getEStructuralFeature(5);
+//				Object eGet = input.eGet(eClassifier);
+//				if(eGet instanceof EDataTypeImpl && !(eGet instanceof EEnumImpl)) {
+//					System.out.println(eGet);
+//					return false;
+//				}
+										
 				if (input.eContainer() instanceof EGenericType) {
 					EGenericType eGenericTypeContainer = (EGenericType)(input.eContainer());
 					isEGenericWithoutParams = !(eGenericTypeContainer.getETypeArguments().contains(input)

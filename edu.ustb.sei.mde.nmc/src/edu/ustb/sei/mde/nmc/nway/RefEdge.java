@@ -10,6 +10,8 @@ public class RefEdge {
 	List<EObject> sourceIndex;
 	List<EObject> targetIndex;
 	
+	
+	
 	public RefEdge(EReference type, List<EObject> sourceIndex, List<EObject> targetIndex) {
 		this.type = type;
 		this.sourceIndex = sourceIndex;

@@ -79,14 +79,14 @@ public class MaximalCliquesWithPivot {
 
 	// lyt: 需要传入参数
 	public void initGraph(Set<EObject> vertices, Set<Match> edges) {
-		graph.clear();
-		vertices.forEach(eObject -> {
+		graph.clear();		
+		for(EObject eObject : vertices) {
 			Vertex V = new Vertex();
 			V.setX(eObject);
 			graph.add(V);
-		});
-
-		edges.forEach(e -> {
+		}
+		
+		for(Match e : edges) {
 			EObject left = e.getLeft();
 			EObject right = e.getRight();
 			Vertex vertexU = null;
@@ -100,44 +100,10 @@ public class MaximalCliquesWithPivot {
 				}
 			}
 			vertexU.addNbr(vertexV);
-		});
-	}
-	
-	// origin
-	void initGraph(Set<EObject> vertices, List<Match> edges) {
-		graph.clear();
-		vertices.forEach(eObject -> {
-			Vertex V = new Vertex();
-			V.setX(eObject);
-			graph.add(V);
-		});
-
-		for (int i = 0; i < edges.size(); i++) {
-			EObject left = edges.get(i).getLeft();
-			EObject right = edges.get(i).getRight();
-			Vertex vertexU = null;
-			Vertex vertexV = null;
-			for (int j = 0; j < graph.size(); j++) {
-				Vertex v = graph.get(j);
-				if (v.x == left) {
-					vertexU = v;
-				} else if (v.x == right) {
-					vertexV = v;
-				}
-			}
-
-			try {
-				vertexU.addNbr(vertexV);
-			} catch (Exception e) {
-				// tmp
-				System.out.println("MaximalClique line 106");
-				e.printStackTrace();
-			}
-
 		}
 
 	}
-
+	
 	public void Bron_KerboschPivotExecute(List<List<EObject>> maximalCliques) {
 		ArrayList<Vertex> X = new ArrayList<Vertex>();
 		ArrayList<Vertex> R = new ArrayList<Vertex>();

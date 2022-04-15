@@ -2,6 +2,7 @@ package edu.ustb.sei.mde.nmc.nway;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,10 +16,17 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.map.MultiKeyMap;
+import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EReference;
+import org.eclipse.emf.ecore.EStructuralFeature;
+import org.eclipse.emf.ecore.impl.EClassImpl;
+import org.eclipse.emf.ecore.impl.EDataTypeImpl;
+import org.eclipse.emf.ecore.impl.EPackageImpl;
+import org.eclipse.emf.ecore.impl.ETypedElementImpl;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.uml2.uml.AggregationKind;
@@ -66,10 +74,15 @@ public class NWay {
 		/**
 		 * 将原始模型与各个分支模型进行二向匹配 匹配上同一个原始元素的，划分到相同的匹配组
 		 */
-		Map<EObject, List<EObject>> nodeMatchGroupMap = new HashMap<>();
+		Map<EObject, List<EObject>> nodeMatchGroupMap = new HashMap<>();	// 例如<eb, {e1, null, e3, ..., en}>
+		Map<EObject, List<EObject>> nodeAddMatchGroupMap = new HashMap<>(); // 例如<e3, {null, null, e3, e4, ..., null}>
+		
 		Map<Integer, List<EObject>> addMap = new HashMap<>();
+		
 		// 还要记录非新加的匹配组，为了checkValid
 		Map<EObject, List<EObject>> nodesIndexMap = new HashMap<>();
+		// 为了处理代理对象
+		Map<EObject, List<EObject>> proxyHelperMap = new HashMap<>();
 
 		for (int i = 1; i < size; i++) { // resourceList下标为0时，对应baseResource
 			branchResource = resourceList.get(i);
@@ -80,8 +93,10 @@ public class NWay {
 			System.out.println("MATCH TIME: " + (end - start) + " ms.\n");
 
 			for (Match match : comparison.getMatches()) {
+								
 				EObject baseEObject = match.getLeft();
 				EObject branchEObject = match.getRight();
+								
 				if (baseEObject != null) {
 					List<EObject> list = nodeMatchGroupMap.get(baseEObject);
 					if (list == null) {
@@ -89,22 +104,75 @@ public class NWay {
 						nodeMatchGroupMap.put(baseEObject, list);
 						// 注意baseEObject没在list中（暂时不影响）
 						nodesIndexMap.put(baseEObject, list);
+										
 					}
+					
 					list.add(branchEObject); // 例如<eb, {e1, null, e3, ..., en}>
-
 					// need to improve?
 					if (branchEObject != null) {
 						nodesIndexMap.put(branchEObject, list);
+					}
+					
+					// lyt: 处理代理对象的问题。例如属性id的类型是EInt，此EInt对象的eIsProxy()为true
+					if(baseEObject instanceof ETypedElementImpl) {
+						EStructuralFeature eType = baseEObject.eClass().getEStructuralFeature("eType");
+						
+						EObject baseProxyEObject = (EObject) baseEObject.eGet(eType, false);	// 需要传入参数false，才能拿到eProxyURI						
+						
+						if(baseProxyEObject != null && baseProxyEObject.eIsProxy()) {
+																				
+							List<EObject> listProxy = nodeMatchGroupMap.get(baseProxyEObject);
+							if(listProxy == null) {
+								listProxy = new ArrayList<>(size-1);
+								nodeMatchGroupMap.put(baseProxyEObject, listProxy);	
+								nodesIndexMap.put(baseProxyEObject, listProxy);
+								
+							} 
+							
+							if(branchEObject != null) {
+								EObject branchProxyEObject = (EObject) branchEObject.eGet(eType, false);
+								if(branchProxyEObject != null) {
+									listProxy.add(branchProxyEObject);
+									nodesIndexMap.put(branchProxyEObject, listProxy);
+								} else {
+									listProxy.add(null);
+								}
+								
+							} else {
+								listProxy.add(null);
+							}
+														
+						} else {
+							if(branchEObject != null) {																						
+								EObject branchProxyEObject = (EObject) branchEObject.eGet(eType, false);
+								
+								if(branchProxyEObject != null && branchProxyEObject.eIsProxy()) {
+									List<EObject> proxyAddMatchGroup = proxyHelperMap.get(baseEObject);
+									if(proxyAddMatchGroup == null) {
+										proxyAddMatchGroup = new ArrayList<>(Collections.nCopies(size-1, null));
+										proxyHelperMap.put(baseEObject, proxyAddMatchGroup);
+										nodeAddMatchGroupMap.put(branchProxyEObject, proxyAddMatchGroup);
+									}
+																		
+									Integer index = resourceMap.get(branchEObject.eResource());	// 注意：resourceMap，下标为0时，对应分支1
+									proxyAddMatchGroup.set(index, branchProxyEObject);
+									nodesIndexMap.put(branchProxyEObject, proxyAddMatchGroup);
+
+								}
+							}												
+						}						
 					}
 
 				} else {
 					List<EObject> addList = addMap.get(i);
 					if (addList == null) {
 						addList = new ArrayList<>();
-						addMap.put(i, addList); // 将相同分支模型的所有新加元素放到一起
+						addMap.put(i, addList); // 将相同分支模型的所有新加元素放到一个addList
 					}
 					addList.add(branchEObject);
+														
 				}
+								
 			}
 
 		}
@@ -122,11 +190,25 @@ public class NWay {
 
 		/** 预匹配信息：将分支i，分支j作为键 */
 		MultiKeyMap<Integer, List<Match>> preMatchMap = new MultiKeyMap<>();
-		nodeMatchGroupMap.values().forEach(value -> {
+		
+		for(List<EObject> value : nodeMatchGroupMap.values()) {
 			for (int i = 1; i < size - 1; i++) {
 				EObject leftEObject = value.get(i - 1); // 注意：value下标为0时，对应的是分支1
+				boolean flag = false;				
+				
 				for (int j = i + 1; j < size; j++) {
 					EObject rightEObject = value.get(j - 1);
+					
+					// lyt：预匹配信息不需要代理对象的，因为match阶段根本不会计算EGenericType的匹配
+					if(leftEObject != null && leftEObject.eIsProxy()) {
+						flag = true;
+						break;
+					}					
+					if(rightEObject != null && rightEObject.eIsProxy()) {
+						flag = true;
+						break;
+					}
+					
 					if (leftEObject != null || rightEObject != null) {
 						List<Match> list = preMatchMap.get(i, j);
 						if (list == null) {
@@ -139,14 +221,20 @@ public class NWay {
 						list.add(match);
 					}
 				}
+				
+				if(flag == true) {
+					break;
+				}
+				
 			}
-		});
+		}
+		
 
 		/** 对于新加元素，两两比较分支模型 */
 		Set<EObject> vertices = new HashSet<>();
 		Set<Match> edges = new HashSet<>();
 		MultiKeyMap<EObject, Double> distanceMap = new MultiKeyMap<>(); // 还要记录编辑距离
-		for (int i = 1; i < size - 1; i++) {
+		for (int i = 1; i <= size - 1; i++) {
 			List<EObject> leftEObjects = addMap.get(i);
 			if (leftEObjects != null) {
 				vertices.addAll(leftEObjects);
@@ -189,6 +277,8 @@ public class NWay {
 //		System.out.println("\n\n\n");
 
 		/** 成团、排序、选择 */
+		
+		// 初始化新加节点的相似图，调用BKPivot算法得出极大团
 		MaximalCliquesWithPivot ff = new MaximalCliquesWithPivot();
 		ff.initGraph(vertices, edges);
 		List<List<EObject>> maximalCliques = new ArrayList<>();
@@ -206,8 +296,8 @@ public class NWay {
 //		});
 //		System.out.println("\n\n\n");
 
-		// 新加节点的匹配组
-		Map<EObject, List<EObject>> nodeAddMatchGroupMap = new HashMap<>();
+		// 计算新加节点的匹配组：对团进行排序、选择
+
 		while (maximalCliques.size() > 0) {
 			Map<List<EObject>, Double> map = new HashMap<>();
 			for (List<EObject> clique : maximalCliques) {
@@ -254,16 +344,45 @@ public class NWay {
 			List<EObject> matchGroup = findFirst.get().getKey();
 			maximalCliques.remove(matchGroup);
 
-			List<EObject> nodeAddMatchGroup = new ArrayList<>(Collections.nCopies(size - 1, null));
-			matchGroup.forEach(e -> {
+			
+			List<EObject> nodeAddMatchGroup = new ArrayList<>(Collections.nCopies(size - 1, null));			
+			// lyt: 处理eProxy的问题
+			List<EObject> proxyAddMatchGroup = new ArrayList<>(Collections.nCopies(size - 1, null));
+			EObject firstProxyEObject = null;
+			boolean flag = true;
+			
+			for(EObject e : matchGroup) {
 				Integer index = resourceMap.get(e.eResource());
-				nodeAddMatchGroup.set(index, e); // 其它位置为null，例如{e1, null, null, ..., en}
+				nodeAddMatchGroup.set(index, e); // 其它位置为null，例如{e1, e2, null, ..., en}
 				// 更新nodesIndexMap，need to improve?
 				nodesIndexMap.put(e, nodeAddMatchGroup);
-			});
-			// 把分支新加的第一个作为key了，方便之后的边计算
-			nodeAddMatchGroupMap.put(matchGroup.get(0), nodeAddMatchGroup);
+				
+				// lyt: 处理代理对象的问题
+				if(e instanceof ETypedElementImpl) {	
+					EStructuralFeature eType = e.eClass().getEStructuralFeature("eType");
+					EObject proxyEObject = (EObject) e.eGet(eType, false);					
+					
+					if(proxyEObject != null && proxyEObject.eIsProxy()) {
+						proxyAddMatchGroup.set(index, proxyEObject);										
+						nodesIndexMap.put(proxyEObject, proxyAddMatchGroup);
+						// 方便nodeAddMatchGroupMap进行put
+						if(flag == true) {
+							firstProxyEObject = proxyEObject;
+							flag = false;
+						}
+					}
+					
+				}
+			}
 
+			// 把分支新加的第一个作为key了，方便之后边的计算
+			nodeAddMatchGroupMap.put(matchGroup.get(0), nodeAddMatchGroup);
+			
+			// lyt: 处理代理对象的问题。同样，将第一个作为key了，方便之后边的计算
+			if(firstProxyEObject != null) {				
+				nodeAddMatchGroupMap.put(firstProxyEObject, proxyAddMatchGroup);
+			}
+			
 			// tmp
 //			System.out.println("**************挑选的团***************");
 //			matchGroup.forEach(e -> {
@@ -298,29 +417,31 @@ public class NWay {
 //		System.out.println("\n\n\n");
 
 		/** 得到边的匹配组 */
-		// 针对非新加点的边
+		// 针对非新加节点的边，需要4个Map
 		Map<ValEdge, List<ValEdge>> valEdgeMatchGroupMap = new HashMap<>();
 		Map<ValEdgeMulti, List<ValEdgeMulti>> valEdgeMultiMatchGroupMap = new HashMap<>();
 
 		Map<RefEdge, List<RefEdge>> refEdgeMatchGroupMap = new HashMap<>();
 		Map<RefEdgeMulti, List<RefEdgeMulti>> refEdgeMultiMatchGroupMap = new HashMap<>();
 
-		// 方便序的计算
+		// 方便多值属性边和多值引用百年，序的计算
 		MultiKeyMap<Object, ValEdgeMulti> valEdgeMultiHelper = new MultiKeyMap<>();
 		MultiKeyMap<Object, RefEdgeMulti> refEdgeMultiHelper = new MultiKeyMap<>();
-
-		nodeMatchGroupMap.forEach((baseEObject, list) -> {
-
+				
+		for (Entry<EObject, List<EObject>> entry : nodeMatchGroupMap.entrySet()) {
+			EObject baseEObject = entry.getKey();
+			List<EObject> list = entry.getValue();
+			
 			System.out.println("\n\n***************************baseEObject***************************");
 			System.out.println("baseEObject: " + baseEObject);
 			List<EObject> sourceIndex = nodesIndexMap.get(baseEObject); // e.sourceIndex;
 
 			EClass eClass = baseEObject.eClass();
 
+//			System.out.println("-----------------------------针对非新加节点的属性边（基础版本）------------------------------------------");	
 			for (EAttribute a : eClass.getEAllAttributes()) {
 
 				if (a.isChangeable() == false) {
-					System.out.println("不能改变的属性：" + a);
 					continue;
 				}
 
@@ -336,29 +457,31 @@ public class NWay {
 					List<ValEdgeMulti> create = new ArrayList<>(Collections.nCopies(size - 1, null));
 					valEdgeMultiMatchGroupMap.put(valEdgeMulti, create);
 
-					// 方便序的计算，保存了原始版本的
+					// 方便序的计算，保存了基础版本的
 					if (needOrderSet.contains(a.getName())) {
 						valEdgeMultiHelper.put(a, sourceIndex, valEdgeMulti);
 					}
 
 				}
 			}
-
-			System.out.println("-----------------------------------------------------------------------");
+			
+//			System.out.println("----------------------------针对非新加节点的引用边（基础版本）-------------------------------------------");				
 			for (EReference r : eClass.getEAllReferences()) {
 
-				if (r.isChangeable() == false) {
-					System.out.println("不能改变的引用：" + r);
+				if (r.isChangeable() == false || r.getName().equals("eGenericType")
+						|| r.getName().equals("eGenericSuperTypes")) {										
 					continue;
 				}
 
-				if (r.isMany() == false) { // 单值引用
-					EObject value = (EObject) baseEObject.eGet(r);
+				if (r.isMany() == false) { // 单值引用							
+					// lyt: 参数加了false，例如eType获取value时，才有eProxyURI
+					EObject value = (EObject) baseEObject.eGet(r, false);
+															
 					List<EObject> targetIndex = nodesIndexMap.get(value);
 					RefEdge refEdge = new RefEdge(r, sourceIndex, targetIndex); // targetIndex maybe unset
 					List<RefEdge> create = new ArrayList<>(Collections.nCopies(size - 1, null));
 					refEdgeMatchGroupMap.put(refEdge, create);
-
+										
 				} else { // 多值引用
 					List<EObject> values = (List<EObject>) baseEObject.eGet(r);
 					List<List<EObject>> targetsIndex = new ArrayList<>();
@@ -371,7 +494,7 @@ public class NWay {
 					List<RefEdgeMulti> create = new ArrayList<>(Collections.nCopies(size - 1, null));
 					refEdgeMultiMatchGroupMap.put(refEdgeMulti, create);
 
-					// 方便序的计算，保存了原始版本的
+					// 方便序的计算，保存了基础版本的
 					if (needOrderSet.contains(r.getName())) {
 						refEdgeMultiHelper.put(r, sourceIndex, refEdgeMulti);
 					}
@@ -387,10 +510,10 @@ public class NWay {
 
 					EClass eClass2 = branchEObject.eClass(); // PENDING: may not the same as eClass.
 
+//					System.out.println("---------------------------针对非新加节点的属性边（分支版本）--------------------------------------------");
 					for (EAttribute a2 : eClass2.getEAllAttributes()) {
 
 						if (a2.isChangeable() == false) {
-							System.out.println("不能改变的属性：" + a2);
 							continue;
 						}
 
@@ -408,21 +531,22 @@ public class NWay {
 						}
 					}
 
-					System.out.println("-----------------------------------------------------------------------");
+//					System.out.println("----------------------------针对非新加节点的引用边（分支版本）-------------------------------------------");
 					for (EReference r2 : eClass2.getEAllReferences()) {
 
-						if (r2.isChangeable() == false) {
-							System.out.println("不能改变的引用：" + r2);
+						if (r2.isChangeable() == false || r2.getName().equals("eGenericType")
+								|| r2.getName().equals("eGenericSuperTypes")) {										
 							continue;
 						}
 
 						if (r2.isMany() == false) { // 单值引用
-							EObject value2 = (EObject) branchEObject.eGet(r2);
+							// lyt: 加了false，例如eType获取value2时，才有eProxyURI
+							EObject value2 = (EObject) branchEObject.eGet(r2, false);
+																																		
 							List<EObject> targetIndex2 = nodesIndexMap.get(value2);
-
 							RefEdge refEdge2 = new RefEdge(r2, sourceIndex, targetIndex2);
-							refEdgeMatchGroupMap.get(refEdge2).set(i, refEdge2);
-
+							refEdgeMatchGroupMap.get(refEdge2).set(i, refEdge2);												
+							
 						} else { // 多值引用
 							List<EObject> values2 = (List<EObject>) branchEObject.eGet(r2);
 							List<List<EObject>> targetsIndex2 = new ArrayList<>();
@@ -436,9 +560,11 @@ public class NWay {
 					}
 				}
 			}
-		});
+		}
 
-		// 针对新加点的边
+
+
+		// 针对新加节点的边
 		Map<ValEdge, List<ValEdge>> valEdgeAddMatchGroupMap = new HashMap<>();
 		Map<ValEdgeMulti, List<ValEdgeMulti>> valEdgeMultiAddMatchGroupMap = new HashMap<>();
 
@@ -456,10 +582,10 @@ public class NWay {
 					EClass eClass = addEObject.eClass();
 					List<EObject> sourceIndex = nodesIndexMap.get(addEObject);
 
+//					System.out.println("-----------------------------针对新加节点的属性边------------------------------------------");	
 					for (EAttribute a : eClass.getEAllAttributes()) {
 
 						if (a.isChangeable() == false) {
-							System.out.println("不能改变的属性：" + a);
 							continue;
 						}
 
@@ -494,15 +620,18 @@ public class NWay {
 						}
 					}
 
+//					System.out.println("-----------------------------针对新加节点的引用边------------------------------------------");	
 					for (EReference r : eClass.getEAllReferences()) {
 
-						if (r.isChangeable() == false) {
-							System.out.println("不能改变的引用：" + r);
+						if (r.isChangeable() == false || r.getName().equals("eGenericType")
+								|| r.getName().equals("eGenericSuperTypes")) {										
 							continue;
 						}
 
 						if (r.isMany() == false) { // 单值引用
-							EObject value = (EObject) addEObject.eGet(r);
+							// lyt: 参数加了false，例如eType获取value时，才有eProxyURI
+							EObject value = (EObject) addEObject.eGet(r, false);
+														
 							List<EObject> targetIndex = nodesIndexMap.get(value);
 							RefEdge refEdge = new RefEdge(r, sourceIndex, targetIndex);
 							List<RefEdge> exist = refEdgeAddMatchGroupMap.get(refEdge);
@@ -550,131 +679,278 @@ public class NWay {
 		List<Tuple> tupleList = new ArrayList<>(); // 最后加到conflictResourceEObjects中
 
 		// 针对非新加节点
-		nodeMatchGroupMap.forEach((baseEObject, list) -> {
-			// 先计算点的合并类型
-			EClass baseEClass = baseEObject.eClass();
-			EClass finalEClass = baseEClass;
-			boolean flag = true;
-			boolean updateConflictFlag = false;
+		for (Entry<EObject, List<EObject>> entry : nodeMatchGroupMap.entrySet()) {
+			EObject baseEObject = entry.getKey();
+			List<EObject> list = entry.getValue();
+			
+			if(baseEObject.eIsProxy()) {
+				boolean flag = true;
+				boolean updateConflictFlag = false;
+				
+				// 记录可能产生的冲突
+				List<Tuple> deleteMayConflict = new ArrayList<>();
+				List<Tuple> updateMayConflict = new ArrayList<>();
+				
+				// 用fragment还是URI.toString()呢？
+				String baseFragment = null;
+				if(baseEObject instanceof EDataTypeImpl) {
+					baseFragment = ((EDataTypeImpl) baseEObject).eProxyURI().fragment();					
+				}
+				String finalFragment = baseFragment;
+				
+				EObject finalEObject = baseEObject;		
 
-			// 记录可能产生的冲突
-			List<Tuple> deleteMayConflict = new ArrayList<>();
-			List<Tuple> updateMayConflict = new ArrayList<>();
-
-			for (int i = 0; i < size - 1; i++) {
-				EObject branchEObject = list.get(i);
-				if (branchEObject == null) {
-					// 打印出的分支从下标要加1
-					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
-					tuple.setBranch(i + 1);
-					deleteMayConflict.add(tuple);
-
-				} else {
-					EClass branchEClass = branchEObject.eClass();
-					if (branchEClass != baseEClass) { // EClass用地址比较
-						// 下标加1
+				for(int i=0; i<size-1; i++) {
+					EObject branchEObject = list.get(i);
+					if(branchEObject == null) {
+						// 打印出的分支从下标要加1
 						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
 						tuple.setBranch(i + 1);
-						tuple.setEObject(branchEObject);
-						updateMayConflict.add(tuple);
+						deleteMayConflict.add(tuple);
 
-						if (flag == true) {
-							finalEClass = branchEClass;
-							flag = false;
-						} else {
-							finalEClass = computeSubType(finalEClass, branchEClass);
-							if (updateConflictFlag == false && finalEClass == null) {
-								updateConflictFlag = true;
+					} else {
+						String branchFragment = ((EDataTypeImpl) branchEObject).eProxyURI().fragment();
+						if(branchFragment.equals(baseFragment) == false) {
+							// 下标加1
+							Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+							tuple.setBranch(i + 1);
+							tuple.setEObject(branchEObject);
+							updateMayConflict.add(tuple);
+							
+							if (flag == true) {
+								finalEObject = branchEObject;
+								finalFragment = branchFragment;
+								flag = false;
+							} else {
+								if(branchFragment.equals(finalFragment) == false) {
+									if (updateConflictFlag == false) {
+										updateConflictFlag = true;
+									}
+								}
+							}
+						} 
+					}
+				}
+				
+				// PNEDING: 没记录使用代理对象的对象。例如id: EInt，没记录id。
+				if (updateConflictFlag == true) {
+					Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+					conflict.getTuples().addAll(updateMayConflict);
+					conflict.setInformation("设置了不同的代理对象");	
+					conflictList.add(conflict);
+					tupleList.addAll(updateMayConflict);
+				}
+
+				if (deleteMayConflict.size() > 0 && updateMayConflict.size() > 0) { // 应该还需要后者的条件
+					Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+					deleteMayConflict.addAll(updateMayConflict); // 求并集
+					conflict.getTuples().addAll(deleteMayConflict);
+					conflict.setInformation("删除了代理对象-设置了代理对象");
+					conflictList.add(conflict);
+					tupleList.addAll(deleteMayConflict);
+				}
+
+				if (deleteMayConflict.size() == 0) {
+					// lyt: 如果是代理对象，没有冲突的话，直接记录到nodesReverseIndexMap，但是不加入m1ResourceEObjects。
+					List<EObject> sourceIndex = nodesIndexMap.get(baseEObject);
+					// 更新nodexReverseIndexMap
+					nodesReverseIndexMap.put(sourceIndex, finalEObject);
+				}
+				
+			} else {	// 非代理对象
+				boolean flag = true;
+				boolean updateConflictFlag = false;
+				
+				// 记录可能产生的冲突
+				List<Tuple> deleteMayConflict = new ArrayList<>();
+				List<Tuple> updateMayConflict = new ArrayList<>();
+				
+				// 先计算点的合并类型
+				EClass baseEClass = baseEObject.eClass();
+				EClass finalEClass = baseEClass;
+				
+				for (int i = 0; i < size - 1; i++) {
+					EObject branchEObject = list.get(i);
+					if (branchEObject == null) {
+						// 打印出的分支从下标要加1
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						deleteMayConflict.add(tuple);
+
+					} else {
+						EClass branchEClass = branchEObject.eClass();
+						if (branchEClass != baseEClass) { // EClass用地址比较
+							// 下标加1
+							Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+							tuple.setBranch(i + 1);
+							tuple.setEObject(branchEObject);
+							updateMayConflict.add(tuple);
+
+							if (flag == true) {
+								finalEClass = branchEClass;
+								flag = false;
+							} else {
+								finalEClass = computeSubType(finalEClass, branchEClass);
+								if (updateConflictFlag == false && finalEClass == null) {
+									updateConflictFlag = true;
+								}
 							}
 						}
 					}
 				}
-			}
+				
+				if (updateConflictFlag == true) {
+					// 冲突：点的类型修改不兼容
+					Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+					conflict.getTuples().addAll(updateMayConflict);
+					conflict.setInformation("点的类型修改不兼容");
+					conflictList.add(conflict);
+					tupleList.addAll(updateMayConflict);
+				}
 
-			if (updateConflictFlag == true) {
-				// 冲突：点的类型修改不兼容
-				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
-				conflict.getTuples().addAll(updateMayConflict);
-				conflict.setInformation("点的类型修改不兼容");
-				conflictList.add(conflict);
-				tupleList.addAll(updateMayConflict);
-			}
+				if (deleteMayConflict.size() > 0 && updateMayConflict.size() > 0) { // 应该还需要后者的条件
+					// 冲突：删除了点-修改了点的类型
+					Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+					deleteMayConflict.addAll(updateMayConflict); // 求并集
+					conflict.getTuples().addAll(deleteMayConflict);
+					conflict.setInformation("删除了点-修改了点的类型");
+					conflictList.add(conflict);
+					tupleList.addAll(deleteMayConflict);
+				}
 
-			if (deleteMayConflict.size() > 0 && updateMayConflict.size() > 0) { // 应该还需要后者的条件
-				// 冲突：删除了点-修改了点的类型
-				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
-				deleteMayConflict.addAll(updateMayConflict); // 求并集
-				conflict.getTuples().addAll(deleteMayConflict);
-				conflict.setInformation("删除了点-修改了点的类型");
-				conflictList.add(conflict);
-				tupleList.addAll(deleteMayConflict);
+				if (deleteMayConflict.size() == 0) {	
+					EObject create = EcoreUtil.create(finalEClass);							
+					// 更新nodesIndexMap
+					List<EObject> sourceIndex = nodesIndexMap.get(baseEObject);
+					nodesIndexMap.put(create, sourceIndex);
+					// 更新nodexReverseIndexMap
+					nodesReverseIndexMap.put(sourceIndex, create);
+					// 加到resourceNodes
+					m1ResourceEObjects.add(create);
+				}
 			}
+			
+		}
+		
 
-			if (deleteMayConflict.size() == 0) {
-				EObject create = EcoreUtil.create(finalEClass);
-							
-				// 更新nodesIndexMap
-				List<EObject> sourceIndex = nodesIndexMap.get(baseEObject);
-				nodesIndexMap.put(create, sourceIndex);
-				// 更新nodexReverseIndexMap
-				nodesReverseIndexMap.put(sourceIndex, create);
-				// 加到resourceNodes
-				m1ResourceEObjects.add(create);
-			}
-		});
-
+	
 		// 针对新加节点
 		for (Entry<EObject, List<EObject>> entry : nodeAddMatchGroupMap.entrySet()) {
-			EObject key = entry.getKey();
+			EObject firstEObject = entry.getKey();
 			List<EObject> list = entry.getValue();
-
-			EClass finalType = null;
-			boolean flag = true;
-			boolean addConflictFlag = false;
-			List<Tuple> addMayConflict = new ArrayList<>();
-
-			for (int i = 0; i < size - 1; i++) {
-				EObject addEObject = list.get(i);
-				if (addEObject != null) {
-					EClass addEClass = addEObject.eClass();
-					// 分支下标要加1
-					Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
-					tuple.setBranch(i + 1);
-					tuple.setEObject(addEObject);
-					addMayConflict.add(tuple);
-
-					if (flag == true) {
-						finalType = addEClass;
-						flag = false;
-					} else {
-						finalType = computeSubType(finalType, addEClass);
-						if (addConflictFlag == false && finalType == null) {
-							addConflictFlag = true;
+			
+			if(firstEObject.eIsProxy()) {
+				boolean flag = true;			
+				boolean addConflictFlag = false;
+				
+				// 记录可能产生的冲突
+				List<Tuple> addMayConflict = new ArrayList<>();
+				
+				String finalFragment = null;
+				
+				EObject finalEObject = null;
+				
+				for (int i = 0; i < size - 1; i++) {
+					EObject addEObject = list.get(i);	// 也会遍历到firstEObject
+					if (addEObject != null) {
+						String addFragment = ((EDataTypeImpl) addEObject).eProxyURI().fragment();
+						// 分支下标要加1
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						tuple.setEObject(addEObject);
+						addMayConflict.add(tuple);
+						
+						if(flag == true) {
+							finalEObject = addEObject;
+							finalFragment = addFragment;
+							flag = false;
+						} else {
+							if(finalFragment.equals(addFragment) == false) {
+								if(addConflictFlag == false) {
+									addConflictFlag = true;
+								}
+							}
 						}
 					}
 				}
-			}
+				
+				if (addConflictFlag == true) {
+					Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+					conflict.getTuples().addAll(addMayConflict);
+					conflict.setInformation("新加代理对象的设置不同");
+					conflictList.add(conflict);
+					tupleList.addAll(addMayConflict);
+				}
+				
+				// lyt: 如果是代理对象，直接记录到nodesReverseIndexMap，但是不加入m1ResourceEObjects
+				List<EObject> sourceIndex = nodesIndexMap.get(firstEObject);
+				// 更新nodesReverseIndexMap
+				nodesReverseIndexMap.put(sourceIndex, finalEObject);
+				
+			} else {	// 非代理对象
+				boolean flag = true;			
+				boolean addConflictFlag = false;
+				
+				// 记录可能产生的冲突
+				List<Tuple> addMayConflict = new ArrayList<>();
 
-			if (addConflictFlag == true) {
-				// 冲突：新加点的类型不兼容，就是当前分支和之前的分支吧
-				Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
-				conflict.getTuples().addAll(addMayConflict);
-				conflict.setInformation("新加点的类型不兼容");
-				conflictList.add(conflict);
-				tupleList.addAll(addMayConflict);
-			}
+				EClass finalType = null;
+				
+				for (int i = 0; i < size - 1; i++) {
+					EObject addEObject = list.get(i);
+					if (addEObject != null) {
+						EClass addEClass = addEObject.eClass();
+						// 分支下标要加1
+						Tuple tuple = ConflictFactory.eINSTANCE.createTuple();
+						tuple.setBranch(i + 1);
+						tuple.setEObject(addEObject);
+						addMayConflict.add(tuple);
 
+						if (flag == true) {
+							finalType = addEClass;
+							flag = false;
+						} else {
+							finalType = computeSubType(finalType, addEClass);
+							if (addConflictFlag == false && finalType == null) {
+								addConflictFlag = true;
+							}
+						}
+					}
+				}
+
+				if (addConflictFlag == true) {
+					// 冲突：新加点的类型不兼容，就是当前分支和之前的分支吧
+					Conflict conflict = ConflictFactory.eINSTANCE.createConflict();
+					conflict.getTuples().addAll(addMayConflict);
+					conflict.setInformation("新加点的类型不兼容");
+					conflictList.add(conflict);
+					tupleList.addAll(addMayConflict);
+				}
+				
+				EObject create = EcoreUtil.create(finalType);			
+				// 更新nodesIndexMap
+				List<EObject> sourceIndex = nodesIndexMap.get(firstEObject);
+				nodesIndexMap.put(create, sourceIndex);
+				// 更新nodesReverseIndexMap
+				nodesReverseIndexMap.put(sourceIndex, create);
+				// 加到m1ResourceEObjects
+				m1ResourceEObjects.add(create);
+				
+			}
 			
-			EObject create = EcoreUtil.create(finalType);
-			
-			// 更新nodesIndexMap
-			List<EObject> sourceIndex = nodesIndexMap.get(key);
-			nodesIndexMap.put(create, sourceIndex);
-			// 更新nodesReverseIndexMap
-			nodesReverseIndexMap.put(sourceIndex, create);
-			// 加到resourceNodes
-			m1ResourceEObjects.add(create);
 		}
+		
+		
+		
+		
+		
+		
+		// PENDING: Diff
+		
+		
+		
+		
+		
 
 		/** ValEdge的合并结果 **/
 		System.out.println("\n\n\n");
@@ -942,7 +1218,7 @@ public class NWay {
 			EReference r = key.getType();
 			// eType在设置时，eGenericType自动被设置了
 			if (r.isChangeable() == false || r.getName().equals("eGenericType")
-					|| r.getName().equals("eGenericSuperTypes")) {
+					|| r.getName().equals("eGenericSuperTypes")) {										
 				continue;
 			}
 
@@ -1214,22 +1490,28 @@ public class NWay {
 				
 		/** 设置结果图中的属性和关联 */
 		System.out.println("\n\n\n**********************设置结果图中的属性和关联*************************");
+		
+		System.out.println("------------------------设置属性-----------------------------");
+		
+		// 第一次设置属性边，不涉及需要排序的属性边
+		// 一次性设置属性边的话，会有连带作用的影响，导致结果错误。
 		for (EObject e : m1ResourceEObjects) {
+						
 			List<EObject> sourceIndex = nodesIndexMap.get(e);
 			EClass eClass = e.eClass();
 			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
 			
-							
 			for (EAttribute a : eClass.getEAllAttributes()) {
 								
-				if(a.getName().equals("isComposite")) {
+				// 先设置不需要排序的属性边，跳过需要排序的属性边
+				if(needOrderSet.contains(a) == true) {
 					continue;
 				}
-															
-				if (a.isChangeable() == false) {
+				
+				if(a.isChangeable() == false || a.getName().equals("isComposite")) {
 					continue;
 				}
-
+				
 				if (a.isMany() == false) { // 单值属性
 					System.out.println("单值属性: " + a);
 					Object eSetTarget = valEdge_MultiKeyMap.get(a, sourceIndex);
@@ -1240,83 +1522,7 @@ public class NWay {
 					System.out.println("多值属性：" + a);
 					List<Object> eSetTargets = (List<Object>) valEdgeMulti_MultiKeyMap.get(a, sourceIndex);
 
-					if (eSetTargets.size() <= 1 || !needOrderSet.contains(a.getName())) {
-						e.eSet(a, eSetTargets);
-
-					} else {
-						List<Object> finalList = new ArrayList<>();
-
-						// 由于不知道e是否为新加的点
-						ValEdgeMulti valEdgeMulti = valEdgeMultiHelper.get(a, sourceIndex);
-						ValEdgeMulti valEdgeMultiAdd = null;
-						Map<Object, Integer> baseFlag = new HashMap<>();
-						MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
-
-						if (valEdgeMulti != null) {
-							for (int i = 0; i < valEdgeMulti.getTargets().size(); i++) {
-								Object obj = valEdgeMulti.getTargets().get(i);
-								baseFlag.put(obj, i);
-							}
-
-							List<ValEdgeMulti> list = valEdgeMultiMatchGroupMap.get(valEdgeMulti);
-							for (int i = 0; i < size - 1; i++) {
-								ValEdgeMulti valEdgeMulti2 = list.get(i); // 不可能出现null吧
-								for (int j = 0; j < valEdgeMulti2.getTargets().size(); j++) {
-									Object obj = valEdgeMulti2.getTargets().get(j);
-									branchFlag.put(i, obj, j);
-								}
-							}
-
-						} else {
-							valEdgeMultiAdd = valEdgeMultiAddHelper.get(a, sourceIndex);
-							List<ValEdgeMulti> list = valEdgeMultiAddMatchGroupMap.get(valEdgeMultiAdd);
-							for (int i = 0; i < size - 1; i++) {
-								ValEdgeMulti valEdgeMulti2 = list.get(i); // 可能为null
-								if (valEdgeMulti2 != null) {
-									for (int j = 0; j < valEdgeMulti2.getTargets().size(); j++) {
-										Object obj = valEdgeMulti2.getTargets().get(j);
-										branchFlag.put(i, obj, j);
-									}
-								}
-							}
-
-						}
-
-						int nodeSize = eSetTargets.size();
-						TopoGraph g = new TopoGraph(nodeSize);
-
-						for (int i = 0; i < nodeSize - 1; i++) {
-							Object x = eSetTargets.get(i);
-							for (int j = i + 1; j < nodeSize; j++) {
-								Object y = eSetTargets.get(j);
-								Order order = Order.unkown;
-								if (valEdgeMulti != null) {
-									order = computeOrd(baseFlag, branchFlag, x, y);
-								} else if (valEdgeMultiAdd != null) {
-									order = computeOrd(null, branchFlag, x, y);
-								}
-								if (order == order.less) {
-									g.addEdge(i, j);
-								} else if (order == order.greater) {
-									g.addEdge(j, i);
-								}
-							}
-						}
-
-						// 或许还要传进conflicts
-						try {
-							List<Integer> topologicalSort = g.topologicalSort();
-							for (Integer i : topologicalSort) {
-								finalList.add(eSetTargets.get(i));
-							}
-						} catch (Exception e1) {
-							e1.printStackTrace();
-						}
-
-						// 最后才eSet
-						e.eSet(a, finalList);
-						
-					}
+					e.eSet(a, eSetTargets);
 
 				}
 			}
@@ -1325,9 +1531,124 @@ public class NWay {
 			// 所以可以把下面处理引用的放到这里，遍历一次即可
 			
 		}
+		
+		
+		// 进行第二次属性边的设置
+		for (EObject e : m1ResourceEObjects) {
+			List<EObject> sourceIndex = nodesIndexMap.get(e);
+			EClass eClass = e.eClass();
+			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
+			
+			for (EAttribute a : eClass.getEAllAttributes()) {
+					
+				if (a.isMany() == false) {
+					continue;
+				} 
+				
+				// 再设置需要排序的属性边
+				if(needOrderSet.contains(a.getName()) == false) {
+					continue;
+				}
+				
+				if(a.isChangeable() == false || a.getName().equals("isComposite")) {
+					continue;
+				}
+																					
+				System.out.println("多值属性：" + a);
+				List<Object> eSetTargets = (List<Object>) valEdgeMulti_MultiKeyMap.get(a, sourceIndex);
+
+				if (eSetTargets.size() <= 1 ) {
+					e.eSet(a, eSetTargets);
+
+				} else {
+					List<Object> finalList = new ArrayList<>();
+
+					// 由于不知道e是否为新加的点
+					ValEdgeMulti valEdgeMulti = valEdgeMultiHelper.get(a, sourceIndex);
+					ValEdgeMulti valEdgeMultiAdd = null;
+					Map<Object, Integer> baseFlag = new HashMap<>();
+					MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
+
+					if (valEdgeMulti != null) {
+						for (int i = 0; i < valEdgeMulti.getTargets().size(); i++) {
+							Object obj = valEdgeMulti.getTargets().get(i);
+							baseFlag.put(obj, i);
+						}
+
+						List<ValEdgeMulti> list = valEdgeMultiMatchGroupMap.get(valEdgeMulti);
+						for (int i = 0; i < size - 1; i++) {
+							ValEdgeMulti valEdgeMulti2 = list.get(i); // 不可能出现null吧
+							for (int j = 0; j < valEdgeMulti2.getTargets().size(); j++) {
+								Object obj = valEdgeMulti2.getTargets().get(j);
+								branchFlag.put(i, obj, j);
+							}
+						}
+
+					} else {
+						valEdgeMultiAdd = valEdgeMultiAddHelper.get(a, sourceIndex);
+						List<ValEdgeMulti> list = valEdgeMultiAddMatchGroupMap.get(valEdgeMultiAdd);
+						for (int i = 0; i < size - 1; i++) {
+							ValEdgeMulti valEdgeMulti2 = list.get(i); // 可能为null
+							if (valEdgeMulti2 != null) {
+								for (int j = 0; j < valEdgeMulti2.getTargets().size(); j++) {
+									Object obj = valEdgeMulti2.getTargets().get(j);
+									branchFlag.put(i, obj, j);
+								}
+							}
+						}
+
+					}
+
+					int nodeSize = eSetTargets.size();
+					TopoGraph g = new TopoGraph(nodeSize);
+
+					for (int i = 0; i < nodeSize - 1; i++) {
+						Object x = eSetTargets.get(i);
+						for (int j = i + 1; j < nodeSize; j++) {
+							Object y = eSetTargets.get(j);
+							Order order = Order.unkown;
+							if (valEdgeMulti != null) {
+								order = computeOrd(baseFlag, branchFlag, x, y);
+							} else if (valEdgeMultiAdd != null) {
+								order = computeOrd(null, branchFlag, x, y);
+							}
+							if (order == order.less) {
+								g.addEdge(i, j);
+							} else if (order == order.greater) {
+								g.addEdge(j, i);
+							}
+						}
+					}
+
+					// 或许还要传进conflicts
+					try {
+						List<Integer> topologicalSort = g.topologicalSort();
+						for (Integer i : topologicalSort) {
+							finalList.add(eSetTargets.get(i));
+						}
+					} catch (Exception e1) {
+						e1.printStackTrace();
+					}
+
+					// 最后才eSet
+					e.eSet(a, finalList);
+					
+				}
+			}
+
+			// 在设置当前节点的引用时，可能target的属性还没设置，但不影响最终的结果
+			// 所以可以把下面处理引用的放到这里，遍历一次即可
+			
+		}
+		
+		
+		
 							
-		// first
+
 		System.out.println("------------------------设置引用-----------------------------");
+		
+		// 第一次设置引用边，不涉及需要排序的边
+		// 一次性设置引用边的话，会有连带作用的影响，导致结果错误。
 		for (EObject e : m1ResourceEObjects) {
 			
 			// uml
@@ -1345,18 +1666,18 @@ public class NWay {
 			System.out.println("\n\n\nsourceIndex: " + sourceIndex);
 								
 			for (EReference r : eClass.getEAllReferences()) {
+				
+				// 先设置不需要排序的引用边，跳过需要排序的引用边
+				if(needOrderSet.contains(r) == true) {
+					continue;
+				}
 																
 				// eType在设置时，eGenericType自动被设置了
 				if (r.isChangeable() == false || r.getName().equals("eGenericType")
 						|| r.getName().equals("eGenericSuperTypes")) {
 					continue;
 				}		
-				
-				// 先设置不需要排序的引用，跳过需要排序的引用
-				if(needOrderSet.contains(r) == true) {
-					continue;
-				}
-												
+																
 				if (r.isMany() == false) { // 单值引用
 															
 					System.out.println("单值引用：" + r);
@@ -1378,16 +1699,13 @@ public class NWay {
 									
 					List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);
 					List<EObject> finalList = new ArrayList<>();
-
-					if (targetsIndex.size() <= 1 || !needOrderSet.contains(r.getName())) {
-						for (List<EObject> nodeIndex : targetsIndex) {
-							EObject node = nodesReverseIndexMap.get(nodeIndex);
-							if (node != null) {
-								finalList.add(node);
-							}
+					
+					for (List<EObject> nodeIndex : targetsIndex) {
+						EObject node = nodesReverseIndexMap.get(nodeIndex);
+						if (node != null) {
+							finalList.add(node);
 						}
-
-					} 
+					}
 										
 //					e.eSet(r, finalList);	
 								
@@ -1397,7 +1715,7 @@ public class NWay {
 						// EnumerationLiteral
 					}
 					
-					// lyt
+					// lyt: test
 					if (e instanceof MessageOccurrenceSpecificationImpl) {
 						if (r.getName().equals("toAfter")) {
 							List<GeneralOrderingImpl> list = (List<GeneralOrderingImpl>) e.eGet(r);
@@ -1417,9 +1735,9 @@ public class NWay {
 		}
 		
 		
-		// lyt: second 
+		// 进行第二次引用边的设置
 		for (EObject e : m1ResourceEObjects) {
-						
+									
 			// uml
 			if(e instanceof LiteralSpecificationImpl) {
 				continue;
@@ -1439,8 +1757,8 @@ public class NWay {
 				if(r.isMany() == false) {
 					continue;
 				}
-				
-				// 再设置需要排序的多值引用
+									
+				// 再设置需要排序的引用边
 				if(needOrderSet.contains(r.getName()) == false) {
 					continue;
 				}
@@ -1453,90 +1771,97 @@ public class NWay {
 											
 				System.out.println("多值引用：" + r);
 
-				List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);
+				List<List<EObject>> targetsIndex = refEdgeMulti_MultiKeyMap.get(r, sourceIndex);							
 				List<EObject> finalList = new ArrayList<>();
-
-				// initialize
-				List<List<EObject>> mergeIndex = new ArrayList<>();
-
-				// 由于不知道e是否为新加的点
-				RefEdgeMulti refEdgeMulti = refEdgeMultiHelper.get(r, sourceIndex);
-				RefEdgeMulti refEdgeMultiAdd = null;
-				Map<Object, Integer> baseFlag = new HashMap<>();
-				MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
-
-				if (refEdgeMulti != null) {
-					for (int i = 0; i < refEdgeMulti.getTargetsIndex().size(); i++) {
-						List<EObject> index = refEdgeMulti.getTargetsIndex().get(i);
-						baseFlag.put(index, i);
-					}
-
-					List<RefEdgeMulti> list = refEdgeMultiMatchGroupMap.get(refEdgeMulti);
-					for (int i = 0; i < size - 1; i++) {
-						RefEdgeMulti refEdgeMulti2 = list.get(i); // 不可能出现null吧
-						for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
-							List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
-							branchFlag.put(i, index, j);
+				
+				if(targetsIndex.size() <= 1) {
+					for (List<EObject> nodeIndex : targetsIndex) {
+						EObject node = nodesReverseIndexMap.get(nodeIndex);
+						if (node != null) {
+							finalList.add(node);
 						}
 					}
-
 				} else {
-					refEdgeMultiAdd = refEdgeMultiAddHelper.get(r, sourceIndex);
-					List<RefEdgeMulti> list = refEdgeMultiAddMatchGroupMap.get(refEdgeMultiAdd);
-					for (int i = 0; i < size - 1; i++) {
-						RefEdgeMulti refEdgeMulti2 = list.get(i); // 新加的列表，可能出现null
-						if (refEdgeMulti2 != null) {
+					// initialize
+					List<List<EObject>> mergeIndex = new ArrayList<>();
+
+					// 由于不知道e是否为新加的点
+					RefEdgeMulti refEdgeMulti = refEdgeMultiHelper.get(r, sourceIndex);
+					RefEdgeMulti refEdgeMultiAdd = null;
+					Map<Object, Integer> baseFlag = new HashMap<>();
+					MultiKeyMap<Object, Integer> branchFlag = new MultiKeyMap<>();
+
+					if (refEdgeMulti != null) {
+						for (int i = 0; i < refEdgeMulti.getTargetsIndex().size(); i++) {
+							List<EObject> index = refEdgeMulti.getTargetsIndex().get(i);
+							baseFlag.put(index, i);
+						}
+
+						List<RefEdgeMulti> list = refEdgeMultiMatchGroupMap.get(refEdgeMulti);
+						for (int i = 0; i < size - 1; i++) {
+							RefEdgeMulti refEdgeMulti2 = list.get(i); // 不可能出现null吧
 							for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
 								List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
 								branchFlag.put(i, index, j);
 							}
 						}
+
+					} else {
+						refEdgeMultiAdd = refEdgeMultiAddHelper.get(r, sourceIndex);
+						List<RefEdgeMulti> list = refEdgeMultiAddMatchGroupMap.get(refEdgeMultiAdd);
+						for (int i = 0; i < size - 1; i++) {
+							RefEdgeMulti refEdgeMulti2 = list.get(i); // 新加的列表，可能出现null
+							if (refEdgeMulti2 != null) {
+								for (int j = 0; j < refEdgeMulti2.getTargetsIndex().size(); j++) {
+									List<EObject> index = refEdgeMulti2.getTargetsIndex().get(j);
+									branchFlag.put(i, index, j);
+								}
+							}
+						}
 					}
-				}
 
-				int nodeSize = targetsIndex.size();
-				TopoGraph g = new TopoGraph(nodeSize);
+					int nodeSize = targetsIndex.size();
+					TopoGraph g = new TopoGraph(nodeSize);
 
-				for (int i = 0; i < nodeSize - 1; i++) {
-					List<EObject> xIndex = targetsIndex.get(i);
-					for (int j = i + 1; j < nodeSize; j++) {
-						List<EObject> yIndex = targetsIndex.get(j);
-						Order order = Order.unkown;
-						if (refEdgeMulti != null) {
-							order = computeOrd(baseFlag, branchFlag, xIndex, yIndex);
-						} else if (refEdgeMultiAdd != null) {
-							order = computeOrd(null, branchFlag, xIndex, yIndex);
+					for (int i = 0; i < nodeSize - 1; i++) {
+						List<EObject> xIndex = targetsIndex.get(i);
+						for (int j = i + 1; j < nodeSize; j++) {
+							List<EObject> yIndex = targetsIndex.get(j);
+							Order order = Order.unkown;
+							if (refEdgeMulti != null) {
+								order = computeOrd(baseFlag, branchFlag, xIndex, yIndex);
+							} else if (refEdgeMultiAdd != null) {
+								order = computeOrd(null, branchFlag, xIndex, yIndex);
+							}
+							if (order == order.less) {
+								g.addEdge(i, j);
+							} else if (order == order.greater) {
+								g.addEdge(j, i);
+							}
 						}
-						if (order == order.less) {
-							g.addEdge(i, j);
-						} else if (order == order.greater) {
-							g.addEdge(j, i);
+					}
+					
+					// 或许还要传conflicts
+					try {
+						List<Integer> topologicalSort = g.topologicalSort();
+						for (Integer i : topologicalSort) {
+							mergeIndex.add(targetsIndex.get(i));
 						}
+						for (List<EObject> nodeIndex : mergeIndex) {
+							EObject node = nodesReverseIndexMap.get(nodeIndex);
+							finalList.add(node);
+						}
+													
+					} catch (Exception e1) {
+						e1.printStackTrace();
 					}
 				}
 				
-				// 或许还要传conflicts
-				try {
-					List<Integer> topologicalSort = g.topologicalSort();
-					for (Integer i : topologicalSort) {
-						mergeIndex.add(targetsIndex.get(i));
-					}
-					for (List<EObject> nodeIndex : mergeIndex) {
-						EObject node = nodesReverseIndexMap.get(nodeIndex);
-						finalList.add(node);
-					}
-												
-				} catch (Exception e1) {
-					e1.printStackTrace();
-				}
-				
 
-									
+				// 最后才eSet
 				e.eSet(r, finalList);
-				
-
-				
-				// lyt
+										
+				// lyt: test
 				if(e instanceof BehaviorExecutionSpecificationImpl) {
 					if (r.getName().equals("generalOrdering")) {
 						List<GeneralOrderingImpl> list = (List<GeneralOrderingImpl>) e.eGet(r);
@@ -1562,7 +1887,7 @@ public class NWay {
 
 		System.out.println("\n\n\n*****************resourceNodes************************");
 		m1ResourceEObjects.forEach(e -> {
-			EClass eClass = e.eClass();
+			// lyt: test
 			
 		});
 							
@@ -1576,39 +1901,44 @@ public class NWay {
 			e1.printStackTrace();
 		}
 		System.out.println("已写入到合并文件");
+		
+		
+		// 有冲突时，才生产冲突文件
+		if(conflictList.size()>0) {
+			// 设置根						
+			Conflicts conflicts = ConflictFactory.eINSTANCE.createConflicts();
+			conflicts.getConflicts().addAll(conflictList);
+			conflicts.setBaseURI(baseResource.getURI().toString());
 
-		// 设置根
-		Conflicts conflicts = ConflictFactory.eINSTANCE.createConflicts();
-		conflicts.getConflicts().addAll(conflictList);
-		conflicts.setBaseURI(baseResource.getURI().toString());
+			List<String> branchURIString = new ArrayList<>();
+			Set<Integer> set = new HashSet<>();
+			tupleList.forEach(t -> {
+				set.add(t.getBranch());
+			});
+			TreeSet<Integer> treeSet = new TreeSet<>(set);
+			treeSet.forEach(t -> {
+				branchURIString.add(resourceList.get(t).getURI().toString());
+			});
 
-		List<String> branchURIString = new ArrayList<>();
-		Set<Integer> set = new HashSet<>();
-		tupleList.forEach(t -> {
-			set.add(t.getBranch());
-		});
-		TreeSet<Integer> treeSet = new TreeSet<>(set);
-		treeSet.forEach(t -> {
-			branchURIString.add(resourceList.get(t).getURI().toString());
-		});
+			conflicts.getBranchURIs().addAll(branchURIString);
 
-		conflicts.getBranchURIs().addAll(branchURIString);
+			// 加到冲突文件
+			conflictResourceEObjects.add(conflicts);
+			conflictResourceEObjects.addAll(conflictList);
+			conflictResourceEObjects.addAll(tupleList);
 
-		// 加到冲突文件
-		conflictResourceEObjects.add(conflicts);
-		conflictResourceEObjects.addAll(conflictList);
-		conflictResourceEObjects.addAll(tupleList);
+			List<EObject> roots2 = conflictResourceEObjects.stream().filter(n -> n.eContainer() == null)
+					.collect(Collectors.toList());
+			conflictResource.getContents().addAll(roots2);
 
-		List<EObject> roots2 = conflictResourceEObjects.stream().filter(n -> n.eContainer() == null)
-				.collect(Collectors.toList());
-		conflictResource.getContents().addAll(roots2);
-
-		try {
-			conflictResource.save(null);
-		} catch (IOException e1) {
-			e1.printStackTrace();
+			try {
+				conflictResource.save(null);
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
+			System.out.println("\n\n\n已写入到冲突文件");
 		}
-		System.out.println("\n\n\n已写入到冲突文件");
+		
 
 		System.out.println("done");
 
